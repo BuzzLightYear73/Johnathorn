@@ -5,15 +5,16 @@ import pygame
 
 
 class Dragon(Enemy):
-    expressions = {}
-    expression = "default"
+
     steering = []
 
-    def __init__(self, sheet, x_pos, y_pos, x_vel, y_vel, health, target):
-        self.expressions["default"] = pygame.transform.scale2x(pygame.transform.flip(sheet.subsurface(0,0,115,110), True, False))
-        self.img = self.expressions["default"]
-        bounding_box = (x_pos, y_pos, self.img.get_width(), self.img.get_height())
-        Enemy.__init__(self, sheet, x_pos, y_pos, x_vel, y_vel, health, target, bounding_box)
+    def __init__(self, x_pos, y_pos, x_vel, y_vel, health, target):
+        sprite_folder='images/dragon'
+        available_actions = ["flying", "attack", "die", "default"]  
+        super().__init__(x_pos, y_pos, x_vel, y_vel, health,target,sprite_folder, available_actions)
+
+        
+        #self.target = target
 
         ##Setting Expressions
 
