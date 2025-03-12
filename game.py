@@ -62,6 +62,8 @@ def startScreen(myWindow):
             return "Archer"
         if keymap.get(pygame.K_d, False):
             return "Druid"
+        if keymap.get(pygame.K_t, False):
+            return "Titan"
 
 #TODO: Change function to use new environment class for end screen
 def endScreen(myWindow):
@@ -120,7 +122,12 @@ def initalizeEnvironment(char, myWindow):
     environment.playAmbientSound()
 
     return keymap, joystick, char, environment 
-
+    
+def enemy_builder(x, y, width, height, health, char):
+    """Randomly selects an enemy type and returns an instance."""
+    enemy_classes = [Minotaur, Dragon]  # Add more enemy types if needed
+    EnemyClass = random.choice(enemy_classes)
+    return EnemyClass(x, y, width, height, health, char)  # `char` is the sprite folder
 
 def runGame(char, myWindow):
     keymap, joystick, char, environment = initalizeEnvironment(char, myWindow)
@@ -129,7 +136,11 @@ def runGame(char, myWindow):
     height = myWindow.get_height()
 
     #dragon_sheet = pygame.image.load("images/thats_our_dragon.png")
-    enemy = Minotaur(800, 500, 200, 200, 500, char)#Dragon(800, 500, 200, 200, 500, char)
+    #enemy = Dragon(800, 500, 200, 200, 500, char) #Minotaur(800, 500, 200, 200, 500, char)#Dragon(800, 500, 200, 200, 500, char)
+    enemy = enemy_builder(800, 500, 200, 200, 500, char)
+
+
+# Example usage:
 
     dt = 0
     keepGoing = True

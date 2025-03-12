@@ -2,6 +2,7 @@ from enum import Enum
 from vector import Vector
 import pygame
 import random
+import os
 DEFAULT = 0
 WALKING_RIGHT = 1
 ATTACKING = 2
@@ -13,7 +14,8 @@ class Character(pygame.sprite.Sprite):
     animtimer = 0.0
     animidx = 0
 
-    def __init__(self, x_pos, y_pos, x_vel, y_vel, health, special, xs, ys, bounding_box):
+    def __init__(self, x_pos, y_pos, x_vel, y_vel, health, special, xs, ys, sprite_folder, available_actions):
+        
         self.health = health
         self.special = special
         self.pos = Vector(0.0, 0.0)
@@ -27,10 +29,47 @@ class Character(pygame.sprite.Sprite):
         self.xs = xs
         self.ys = ys
         self.damage = 25
-        self.bbox = bounding_box
+        self.bbox = (x_pos, y_pos, 0, 0)  # Placeholder for bounding box dimensions
         #self.expression = DEFAULT  # initialize expression
         # self.expressions should be set up elsewhere with appropriate image lists
 
+        super().__init__()
+        self.sprites = {action: [] for action in available_actions}
+        self.sprites["attack"] = {}  # Attack sub-actions handled separately
+        
+        # Load images from subfolders
+        for action in available_actions:
+            if action == "attack":
+                attack_folder = os.path.join(sprite_folder, "attack")
+                if os.path.exists(attack_folder):
+                    for sub_action in os.listdir(attack_folder):
+                        sub_action_path = os.path.join(attack_folder, sub_action)
+                        if os.path.isdir(sub_action_path):
+                            self.sprites["attack"][sub_action] = []
+                            for filename in sorted(os.listdir(sub_action_path)):
+                                if filename.endswith(".png"):
+                                    image_path = os.path.join(sub_action_path, filename)
+                                    image = pygame.image.load(image_path)
+                                    self.sprites["attack"][sub_action].append(image)
+            else:
+                action_folder = os.path.join(sprite_folder, action)
+                if os.path.exists(action_folder):
+                    for filename in sorted(os.listdir(action_folder)):
+                        if filename.endswith(".png"):
+                            image_path = os.path.join(action_folder, filename)
+                            image = pygame.image.load(image_path)
+                            self.sprites[action].append(image)
+        
+        self.current_action = "walk" if "walk" in self.sprites else list(self.sprites.keys())[0]
+        self.current_sub_action = None
+        self.current_frame = 0
+        self.facing_right = True  # Default facing direction
+        self.image = self.sprites[self.current_action][self.current_frame]
+        self.rect = self.image.get_rect()
+        self.bbox = self.rect  # Initialize bounding box with the image rect
+        
+
+    
     def update(self):
         self.current_frame += 1
         frames = self.sprites[self.current_action]
@@ -43,10 +82,14 @@ class Character(pygame.sprite.Sprite):
         
         if self.current_frame >= len(frames):
             self.current_frame = 0
+        
+        # Flip the image based on direction
         self.image = frames[self.current_frame]
+        if not self.facing_right:
+            self.image = pygame.transform.flip(self.image, True, False)
     
     def set_action(self, action, sub_action=None):
-        if action == "attack":
+        if action == "attack" and "attack" in self.sprites:
             if not sub_action and self.sprites["attack"]:  # Pick a random attack type
                 sub_action = random.choice(list(self.sprites["attack"].keys()))
             if sub_action in self.sprites["attack"]:
@@ -57,6 +100,11 @@ class Character(pygame.sprite.Sprite):
             self.current_action = action
             self.current_sub_action = None
             self.current_frame = 0
+    
+    def set_direction(self, right=True):
+        """Set the direction the enemy is facing."""
+        self.facing_right = right
+
 
     def set_vel(self, new_x, new_y):
         self.velocity = (new_x, new_y)
@@ -155,9 +203,11 @@ class Character(pygame.sprite.Sprite):
         if keymap.get(pygame.K_a, False):
             self.velocity.x -= self.xs
             self.set_action("walk")
+            self.set_direction(False)  # Face left
         if keymap.get(pygame.K_d, False):
             self.velocity.x += self.xs
             self.set_action("walk")
+            self.set_direction(True)  # Face right
         if keymap.get(pygame.K_s, False):
             self.set_action("attack")
             self.attack(target)

@@ -10,14 +10,14 @@ ATTACKING = 2
 JUMP = 4
 
 
-class Warrior(Character):
+class Titan(Character):
 
     # expressions = []
     # expression = DEFAULT
 
 
     def __init__(self, x_pos, y_pos, x_vel, y_vel, health, armour, xs, ys):
-            sprite_folder='images/warrior'
+            sprite_folder='images/titan'
             available_actions = ["default", "walk", "attack", "die"]  
             super().__init__(x_pos, y_pos, x_vel, y_vel, health, armour, xs, ys, sprite_folder, available_actions)
 
