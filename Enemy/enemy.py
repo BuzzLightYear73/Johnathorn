@@ -41,7 +41,7 @@ class Enemy(pygame.sprite.Sprite):
                             for filename in sorted(os.listdir(sub_action_path)):
                                 if filename.endswith(".png"):
                                     image_path = os.path.join(sub_action_path, filename)
-                                    image = pygame.image.load(image_path)
+                                    image = pygame.transform.scale_by(pygame.image.load(image_path), 3.0)
                                     self.sprites["attack"][sub_action].append(image)
             else:
                 action_folder = os.path.join(sprite_folder, action)
@@ -49,7 +49,7 @@ class Enemy(pygame.sprite.Sprite):
                     for filename in sorted(os.listdir(action_folder)):
                         if filename.endswith(".png"):
                             image_path = os.path.join(action_folder, filename)
-                            image = pygame.image.load(image_path)
+                            image = pygame.transform.scale_by(pygame.image.load(image_path), 3.0)
                             self.sprites[action].append(image)
         
         self.current_action = "walk" if "walk" in self.sprites else list(self.sprites.keys())[0]

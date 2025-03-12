@@ -138,7 +138,8 @@ def runGame(char, myWindow):
     #dragon_sheet = pygame.image.load("images/thats_our_dragon.png")
     #enemy = Dragon(800, 500, 200, 200, 500, char) #Minotaur(800, 500, 200, 200, 500, char)#Dragon(800, 500, 200, 200, 500, char)
     enemy = enemy_builder(800, 500, 200, 200, 500, char)
-
+    #Second enemy spawn for testing purposes
+    enemy2 = enemy_builder(800, 500, 200, 200, 500, char)
 
 # Example usage:
 
@@ -200,6 +201,14 @@ def runGame(char, myWindow):
         char.draw(myWindow)
         char.draw_health(myWindow)
         char.simulate(dt, width, height)
+        
+        #Second enemy spawn for testing purposes
+        enemy2.draw(myWindow)
+        enemy2.draw_health(myWindow)
+
+        enemy2.arrive(char, 2.0/10)
+        enemy2.apply_steering()
+        enemy2.move(dt*2, width*2, height*2)
 
         if power and p_up != None:
             p_up.draw(myWindow)
@@ -212,7 +221,7 @@ def runGame(char, myWindow):
         if char.health == 0:
             keepGoing = False
             return False
-        if enemy.health == 0:
+        if enemy.health == 0 and enemy2.health == 0:
             return True
 
     PygameWrapper.quit()
