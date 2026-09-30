@@ -62,11 +62,14 @@ DASH_SPEED = 15.0
 DASH_DURATION = 8       # frames
 DASH_COOLDOWN = 60      # frames
 
-# Attack
+# Attack (legacy globals — used as fallbacks)
 ATTACK_DURATION = 20    # frames
 ATTACK_LUNGE = 3.0      # forward pixels on attack
 ATTACK_HITBOX_INFLATE = 30  # extra width for attack rect
 ATTACK_HITBOX_OFFSET = 25   # offset in facing direction
+
+# Stagger
+PLAYER_STAGGER_FRAMES = 12  # flinch duration on hit
 
 # ── Enemy ──────────────────────────────────────────────────────────────
 ENEMY_BASE_HEALTH = 50
@@ -206,6 +209,15 @@ CHARACTER_CLASSES = {
         "health_mult": 1.2,
         "attack_mult": 1.3,
         "speed_mult": 0.9,
+        "frame_data": {
+            "startup": 3,
+            "active": 4,
+            "recovery": 6,
+            "hitbox_w": 50,
+            "hitbox_h": 60,
+            "hitbox_offset_x": 30,
+            "knockback_force": 12,
+        },
     },
     "mage": {
         "display_name": "Mage",
@@ -226,6 +238,15 @@ CHARACTER_CLASSES = {
         "health_mult": 0.7,
         "attack_mult": 1.8,
         "speed_mult": 1.0,
+        "frame_data": {
+            "startup": 5,
+            "active": 3,
+            "recovery": 8,
+            "hitbox_w": 40,
+            "hitbox_h": 50,
+            "hitbox_offset_x": 25,
+            "knockback_force": 8,
+        },
     },
     "archer": {
         "display_name": "Archer",
@@ -246,6 +267,15 @@ CHARACTER_CLASSES = {
         "health_mult": 0.9,
         "attack_mult": 1.0,
         "speed_mult": 1.3,
+        "frame_data": {
+            "startup": 2,
+            "active": 2,
+            "recovery": 4,
+            "hitbox_w": 35,
+            "hitbox_h": 40,
+            "hitbox_offset_x": 20,
+            "knockback_force": 6,
+        },
     },
     "druid": {
         "display_name": "Druid",
@@ -267,6 +297,15 @@ CHARACTER_CLASSES = {
         "attack_mult": 1.0,
         "speed_mult": 1.0,
         "regen_rate": 0.05,
+        "frame_data": {
+            "startup": 4,
+            "active": 5,
+            "recovery": 5,
+            "hitbox_w": 45,
+            "hitbox_h": 55,
+            "hitbox_offset_x": 28,
+            "knockback_force": 10,
+        },
     },
 }
 DEFAULT_CHARACTER_CLASS = "warrior"
@@ -288,6 +327,10 @@ ENEMY_TYPES = {
         "damage_mult": 1.0,
         "speed_mult": 1.0,
         "unlock_wave": 1,
+        "stagger_frames": 15,
+        "attack_startup": 8,
+        "attack_active": 4,
+        "attack_recovery": 10,
     },
     "skeleton_archer": {
         "display_name": "Skeleton Archer",
@@ -303,6 +346,10 @@ ENEMY_TYPES = {
         "damage_mult": 1.2,
         "speed_mult": 0.9,
         "unlock_wave": 2,
+        "stagger_frames": 12,
+        "attack_startup": 6,
+        "attack_active": 3,
+        "attack_recovery": 8,
     },
     "shadow_bat": {
         "display_name": "Shadow Bat",
@@ -317,6 +364,10 @@ ENEMY_TYPES = {
         "damage_mult": 0.8,
         "speed_mult": 1.5,
         "unlock_wave": 3,
+        "stagger_frames": 8,
+        "attack_startup": 4,
+        "attack_active": 3,
+        "attack_recovery": 6,
     },
 }
 

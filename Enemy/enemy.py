@@ -57,6 +57,16 @@ class Enemy(pygame.sprite.Sprite):
         self.attack_cooldown = 0
         self.attacking = False
         self.facing_right = False
+        self.attack_phase = None       # None | 'startup' | 'active' | 'recovery'
+        self.attack_phase_timer = 0
+        self._attack_hit_this_swing = False
+
+        # Combat config from enemy type
+        self._stagger_frames = type_config.get('stagger_frames', 15)
+        self._attack_startup = type_config.get('attack_startup', 8)
+        self._attack_active = type_config.get('attack_active', 4)
+        self._attack_recovery = type_config.get('attack_recovery', 10)
+        self._damage_mult = type_config.get('damage_mult', 1.0)
 
     def _load_sprites(self, type_config):
         """Load enemy animation clips via AnimationController."""
@@ -141,7 +151,10 @@ class Enemy(pygame.sprite.Sprite):
         if self.rect.right < 0:
             self.kill()
 
-        # 5. Animate
+        # 5. Attack phase progression
+        self._update_attack_phase()
+
+        # 6. Animate
         self._animate()
 
     def take_damage(self, damage):
@@ -155,10 +168,21 @@ class Enemy(pygame.sprite.Sprite):
         self.health -= damage
         return self.health <= 0
 
-    def apply_knockback(self, direction):
+    def apply_knockback(self, direction, force=None):
         """Push the enemy in *direction* (1 = right, -1 = left)."""
         self.knockback_timer = ENEMY_KNOCKBACK_FRAMES
         self.knockback_dir = direction
+        if force is not None:
+            self._knockback_force = force
+        # Interrupt attack on knockback
+        self.attacking = False
+        self.attack_phase = None
+        self.attack_phase_timer = 0
+
+    @property
+    def in_active_attack(self):
+        """True if the enemy is in the active damage-dealing phase of an attack."""
+        return self.attacking and self.attack_phase == 'active'
 
     # ── private helpers ───────────────────────────────────────────────
 
@@ -170,9 +194,32 @@ class Enemy(pygame.sprite.Sprite):
 
     def _start_attack(self):
         """Switch to attack animation and reset cooldown."""
-        if self.attack_cooldown <= 0:
+        if self.attack_cooldown <= 0 and self.attack_phase is None:
             self.attacking = True
             self.attack_cooldown = ENEMY_ATTACK_COOLDOWN
+            self.attack_phase = 'startup'
+            self.attack_phase_timer = 0
+            self._attack_hit_this_swing = False
+
+    def _update_attack_phase(self):
+        """Progress enemy attack through startup → active → recovery."""
+        if self.attack_phase is None:
+            return
+
+        self.attack_phase_timer += 1
+
+        if self.attack_phase == 'startup':
+            if self.attack_phase_timer >= self._attack_startup:
+                self.attack_phase = 'active'
+                self.attack_phase_timer = 0
+        elif self.attack_phase == 'active':
+            if self.attack_phase_timer >= self._attack_active:
+                self.attack_phase = 'recovery'
+                self.attack_phase_timer = 0
+        elif self.attack_phase == 'recovery':
+            if self.attack_phase_timer >= self._attack_recovery:
+                self.attack_phase = None
+                self.attacking = False
 
     def _resolve_animation_state(self):
         """Determine which animation clip should play.

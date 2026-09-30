@@ -44,11 +44,18 @@ class MainCharacter(pygame.sprite.Sprite):
         # Combat
         self.attacking = False
         self.attack_timer = 0
+        self.attack_phase = None       # None | 'startup' | 'active' | 'recovery'
+        self.attack_phase_timer = 0
+        self._attack_hit_this_swing = False
         self.attack_cooldown = 0  # cooldown between ranged shots
         self.projectiles = pygame.sprite.Group()  # player projectiles
         self._is_ranged = character_class in ('archer', 'mage')
         self._proj_type = 'arrow' if character_class == 'archer' else 'magic'
         self._ranged_cooldown = 20 if character_class == 'archer' else 30  # frames
+
+        # Stagger
+        self._staggered = False
+        self._stagger_timer = 0
 
         # Dash
         self.dashing = False
@@ -203,12 +210,11 @@ class MainCharacter(pygame.sprite.Sprite):
         if self.dash_cooldown_timer > 0:
             self.dash_cooldown_timer -= 1
 
-        # 12. Attack timer
-        if self.attacking:
-            self.attack_timer += 1
-            if self.attack_timer >= settings.ATTACK_DURATION:
-                self.attacking = False
-                self.attack_timer = 0
+        # 12. Attack phase progression
+        self.update_attack_phase()
+
+        # 12b. Stagger countdown
+        self._update_stagger()
 
         # 13. Buff timers
         if self.speed_boosted:
@@ -277,8 +283,14 @@ class MainCharacter(pygame.sprite.Sprite):
         Returns a list of enemies hit (melee only; ranged projectiles
         handle collision in the game loop).
         """
+        if self.attack_phase is not None:
+            return []  # Already attacking
+
         self.attacking = True
         self.attack_timer = 0
+        self.attack_phase = 'startup'
+        self.attack_phase_timer = 0
+        self._attack_hit_this_swing = False
 
         if self._is_ranged:
             # Ranged: spawn projectile if off cooldown
@@ -298,34 +310,104 @@ class MainCharacter(pygame.sprite.Sprite):
                 self.attack_cooldown = self._ranged_cooldown
             return []
         else:
-            # Melee: existing behavior
-            attack_rect = self.rect.inflate(settings.ATTACK_HITBOX_INFLATE, 0)
-            offset = settings.ATTACK_HITBOX_OFFSET if self.facing_right else -settings.ATTACK_HITBOX_OFFSET
-            attack_rect.x += offset
-
-            effective_power = self.attack_power
-            if self.attack_boosted:
-                effective_power = int(effective_power * settings.ATTACK_BOOST_MULTIPLIER)
-
-            hits = []
-            for enemy in enemy_group:
-                if attack_rect.colliderect(enemy.rect):
-                    enemy.take_damage(effective_power)
-                    hits.append(enemy)
-
+            # Melee: damage is deferred to active phase via check_melee_hits()
             # Lunge forward
             lunge_dir = 1 if self.facing_right else -1
             self.velocity_x += settings.ATTACK_LUNGE * lunge_dir
+            return []
 
-            return hits
+    def update_attack_phase(self):
+        """Progress attack through startup → active → recovery → done."""
+        if self.attack_phase is None:
+            return
+
+        fd = self.class_config.get('frame_data', {
+            'startup': 3, 'active': 4, 'recovery': 6,
+        })
+
+        self.attack_phase_timer += 1
+
+        if self.attack_phase == 'startup':
+            if self.attack_phase_timer >= fd['startup']:
+                self.attack_phase = 'active'
+                self.attack_phase_timer = 0
+        elif self.attack_phase == 'active':
+            if self.attack_phase_timer >= fd['active']:
+                self.attack_phase = 'recovery'
+                self.attack_phase_timer = 0
+        elif self.attack_phase == 'recovery':
+            if self.attack_phase_timer >= fd['recovery']:
+                self.attack_phase = None
+                self.attacking = False
+                self.attack_timer = 0
+
+    def check_melee_hits(self, enemy_group):
+        """Check for melee hits during active phase. Returns list of hit enemies."""
+        if self.attack_phase != 'active' or self._is_ranged:
+            return []
+        if self._attack_hit_this_swing:
+            return []  # Only hit once per swing
+
+        fd = self.class_config.get('frame_data', {
+            'hitbox_w': settings.ATTACK_HITBOX_INFLATE,
+            'hitbox_h': self.rect.height,
+            'hitbox_offset_x': settings.ATTACK_HITBOX_OFFSET,
+        })
+
+        # Build attack hitbox from frame data
+        hitbox_w = fd.get('hitbox_w', settings.ATTACK_HITBOX_INFLATE)
+        hitbox_h = fd.get('hitbox_h', self.rect.height)
+        offset_x = fd.get('hitbox_offset_x', settings.ATTACK_HITBOX_OFFSET)
+
+        attack_rect = pygame.Rect(0, 0, hitbox_w, hitbox_h)
+        attack_rect.centery = self.rect.centery
+        if self.facing_right:
+            attack_rect.left = self.rect.right + offset_x - hitbox_w // 2
+        else:
+            attack_rect.right = self.rect.left - offset_x + hitbox_w // 2
+
+        effective_power = self.attack_power
+        if self.attack_boosted:
+            effective_power = int(effective_power * settings.ATTACK_BOOST_MULTIPLIER)
+
+        knockback_force = fd.get('knockback_force', 10)
+
+        hits = []
+        for enemy in enemy_group:
+            if attack_rect.colliderect(enemy.rect):
+                enemy.take_damage(effective_power)
+                enemy.apply_knockback(
+                    1 if self.facing_right else -1,
+                    force=knockback_force,
+                )
+                hits.append(enemy)
+
+        if hits:
+            self._attack_hit_this_swing = True
+
+        return hits
 
     def take_damage(self, amount):
-        """Subtract health unless currently invincible (i-frames)."""
+        """Subtract health unless currently invincible. Triggers stagger."""
         if self.invincible:
             return
         self.health -= amount
         self.invincible = True
         self.iframes_timer = settings.IFRAMES_DURATION
+        # Interrupt attack
+        self.attacking = False
+        self.attack_phase = None
+        self.attack_phase_timer = 0
+        # Stagger
+        self._staggered = True
+        self._stagger_timer = settings.PLAYER_STAGGER_FRAMES
+
+    def _update_stagger(self):
+        """Decrement stagger timer and clear when done."""
+        if self._stagger_timer > 0:
+            self._stagger_timer -= 1
+            if self._stagger_timer <= 0:
+                self._staggered = False
 
     # ── Dash ──────────────────────────────────────────────────────────
 

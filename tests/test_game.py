@@ -288,9 +288,14 @@ class TestPlayerCombat(unittest.TestCase):
         self.enemies = pygame.sprite.Group(self.enemy)
 
     def test_attack_hits_nearby_enemy(self):
-        """Attack should damage enemies within attack range."""
+        """Attack should damage enemies within attack range (during active phase)."""
         initial_health = self.enemy.health
-        hits = self.player.attack(self.enemies)
+        self.player.attack(self.enemies)
+        # Advance through startup to active phase
+        fd = self.player.class_config['frame_data']
+        for _ in range(fd['startup']):
+            self.player.update_attack_phase()
+        hits = self.player.check_melee_hits(self.enemies)
         self.assertGreater(len(hits), 0, "Should hit nearby enemy")
         self.assertLess(self.enemy.health, initial_health)
 

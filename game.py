@@ -649,11 +649,12 @@ class Game:
                     if self.sfx_pickup:
                         self.sfx_pickup.play()
 
-                # Enemy damage to player
+                # Enemy damage to player (only during enemy active attack phase)
                 if not self.player.invincible:
                     for e in self.enemy_list:
-                        if pygame.sprite.collide_rect(self.player, e):
-                            self.player.take_damage(ENEMY_ATTACK_DAMAGE)
+                        if e.in_active_attack and pygame.sprite.collide_rect(self.player, e):
+                            damage = int(ENEMY_ATTACK_DAMAGE * getattr(e, '_damage_mult', 1.0))
+                            self.player.take_damage(damage)
                             if self.sfx_player_hurt:
                                 self.sfx_player_hurt.play()
                             self.effects.screen_shake()
@@ -665,6 +666,24 @@ class Game:
                             if self.player.health <= 0:
                                 self.game_over()
                             break
+
+                # Player melee hit check (active phase only)
+                melee_hits = self.player.check_melee_hits(self.enemy_list)
+                if melee_hits:
+                    if self.sfx_hit:
+                        self.sfx_hit.play()
+                    self.effects.hit_pause()
+                    self.effects.screen_shake(SCREEN_SHAKE_INTENSITY // 2)
+                    for enemy in melee_hits:
+                        self.effects.spawn_particles(
+                            enemy.rect.centerx, enemy.rect.centery,
+                            WHITE, PARTICLE_COUNT_HIT,
+                        )
+                        self.effects.spawn_damage_number(
+                            enemy.rect.centerx, enemy.rect.top,
+                            self.player.attack_power if not self.player.attack_boosted
+                            else int(self.player.attack_power * ATTACK_BOOST_MULTIPLIER),
+                        )
 
                 # Player projectile → enemy collisions
                 for proj in list(self.player.projectiles):
@@ -932,8 +951,8 @@ class Game:
     # ── Attack handler (shared between playing & boss states) ──────────
 
     def _handle_attack(self):
-        """Handle attack input — hits enemies and/or boss."""
-        hits = self.player.attack(self.enemy_list)
+        """Handle attack input — initiates attack (hits resolved per-frame via check_melee_hits)."""
+        self.player.attack(self.enemy_list)
 
         # Play class-appropriate attack SFX
         if self.player._is_ranged:
@@ -944,48 +963,33 @@ class Game:
             if self.sfx_sword_swing:
                 self.sfx_sword_swing.play()
 
-        if hits:
-            if self.sfx_hit:
-                self.sfx_hit.play()
-            self.effects.hit_pause()
-            self.effects.screen_shake(SCREEN_SHAKE_INTENSITY // 2)
-            for enemy in hits:
-                self.effects.spawn_particles(
-                    enemy.rect.centerx, enemy.rect.centery,
-                    WHITE, PARTICLE_COUNT_HIT,
-                )
-                self.effects.spawn_damage_number(
-                    enemy.rect.centerx, enemy.rect.top,
-                    self.player.attack_power if not self.player.attack_boosted
-                    else int(self.player.attack_power * ATTACK_BOOST_MULTIPLIER),
-                )
-                enemy.apply_knockback(
-                    1 if self.player.facing_right else -1
-                )
-
-        # Boss melee hit
+        # Boss melee hit (still immediate for boss since boss has no attack phases yet)
         if self.state == "boss" and self.boss and self.boss.state not in ('dying', 'dead'):
-            attack_rect = self.player.rect.inflate(
-                PLAYER_ATTACK_POWER, 0
-            )
-            if self.player.facing_right:
-                attack_rect.x += 25
-            else:
-                attack_rect.x -= 25
-            if attack_rect.colliderect(self.boss.rect) and self.player.attacking:
-                dmg = self.player.attack_power
-                if self.player.attack_boosted:
-                    dmg = int(dmg * ATTACK_BOOST_MULTIPLIER)
-                self.boss.take_damage(dmg)
-                self.effects.hit_pause()
-                self.effects.screen_shake(SCREEN_SHAKE_INTENSITY)
-                self.effects.spawn_particles(
-                    self.boss.rect.centerx, self.boss.rect.centery,
-                    ORANGE, PARTICLE_COUNT_HIT,
-                )
-                self.effects.spawn_damage_number(
-                    self.boss.rect.centerx, self.boss.rect.top, dmg,
-                )
+            if self.player.attack_phase == 'active' and not self.player._is_ranged:
+                fd = self.player.class_config.get('frame_data', {})
+                hitbox_w = fd.get('hitbox_w', 30)
+                hitbox_offset = fd.get('hitbox_offset_x', 25)
+                attack_rect = pygame.Rect(0, 0, hitbox_w, self.player.rect.height)
+                attack_rect.centery = self.player.rect.centery
+                if self.player.facing_right:
+                    attack_rect.left = self.player.rect.right + hitbox_offset - hitbox_w // 2
+                else:
+                    attack_rect.right = self.player.rect.left - hitbox_offset + hitbox_w // 2
+                if attack_rect.colliderect(self.boss.rect) and self.player.attacking:
+                    dmg = self.player.attack_power
+                    if self.player.attack_boosted:
+                        dmg = int(dmg * ATTACK_BOOST_MULTIPLIER)
+                    self.boss.take_damage(dmg)
+                    self.effects.hit_pause()
+                    self.effects.screen_shake(SCREEN_SHAKE_INTENSITY)
+                    self.effects.spawn_particles(
+                        self.boss.rect.centerx, self.boss.rect.centery,
+                        ORANGE, PARTICLE_COUNT_HIT,
+                    )
+                    self.effects.spawn_damage_number(
+                        self.boss.rect.centerx, self.boss.rect.top, dmg,
+                    )
+
 
     # ── Character select drawing ───────────────────────────────────────
 
