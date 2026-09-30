@@ -458,12 +458,16 @@ class Game:
         self.combo_font = pygame.font.SysFont("Arial", 28, bold=True)
         self.title_font = pygame.font.SysFont("Arial", 56, bold=True)
 
-        # Screen images
+        # Screen images — try new generated art first, fall back to originals
         try:
-            raw = pygame.image.load(str(IMAGES_DIR / 'JOHNATHORN.png')).convert()
+            raw = pygame.image.load(str(IMAGES_DIR / 'title_bg.png')).convert()
             self._title_bg = pygame.transform.scale(raw, (SCREEN_WIDTH, SCREEN_HEIGHT))
         except (pygame.error, FileNotFoundError):
-            self._title_bg = None
+            try:
+                raw = pygame.image.load(str(IMAGES_DIR / 'JOHNATHORN.png')).convert()
+                self._title_bg = pygame.transform.scale(raw, (SCREEN_WIDTH, SCREEN_HEIGHT))
+            except (pygame.error, FileNotFoundError):
+                self._title_bg = None
         try:
             raw = pygame.image.load(str(IMAGES_DIR / 'END_SCREEN.png')).convert()
             self._gameover_bg = pygame.transform.scale(raw, (SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -921,6 +925,25 @@ class Game:
             name_text = self.font.render(cfg['display_name'], True, WHITE if selected else (150, 150, 150))
             self.screen.blit(name_text, (x + card_w // 2 - name_text.get_width() // 2, y + 10))
 
+            # Class preview sprite
+            sprite_map = {
+                'warrior': 'warrior/default/warrior_new.png',
+                'mage': 'mage/mage_new.png',
+                'archer': 'archer/archer_new.png',
+                'druid': 'druid/druid_new.png',
+            }
+            sprite_path = IMAGES_DIR / sprite_map.get(cls_key, '')
+            try:
+                if not hasattr(self, '_class_sprites'):
+                    self._class_sprites = {}
+                if cls_key not in self._class_sprites:
+                    raw = pygame.image.load(str(sprite_path)).convert_alpha()
+                    self._class_sprites[cls_key] = pygame.transform.scale(raw, (80, 80))
+                preview = self._class_sprites[cls_key]
+                self.screen.blit(preview, (x + card_w // 2 - 40, y + 48))
+            except (pygame.error, FileNotFoundError):
+                pass  # No preview available
+
             # Stats
             stats = [
                 f"HP: {int(PLAYER_HEALTH * cfg['health_mult'])}",
@@ -932,7 +955,7 @@ class Game:
 
             for j, stat in enumerate(stats):
                 stat_text = self.small_font.render(stat, True, (200, 200, 200))
-                self.screen.blit(stat_text, (x + 15, y + 55 + j * 28))
+                self.screen.blit(stat_text, (x + 15, y + 140 + j * 28))
 
             # Description
             desc_text = self.small_font.render(cfg['description'], True, (160, 160, 180))
