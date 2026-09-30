@@ -12,6 +12,7 @@ from settings import (
     YELLOW, ORANGE, DARK_RED, HEALTH_GREEN, HEALTH_BG, IMAGES_DIR,
     CAMERA_LERP_SPEED, CAMERA_LEFT_MARGIN, GROUND_Y,
     ARENA_WIDTH, ARENA_LEFT_BOUND, ARENA_RIGHT_BOUND,
+    SCALED, RESIZABLE, START_FULLSCREEN,
     PLAYER_START_X, PLAYER_START_Y, PLAYER_HEALTH, PLAYER_ATTACK_POWER,
     ATTACK_BOOST_MULTIPLIER,
     INITIAL_SPAWN_INTERVAL, SPAWN_INTERVAL_DECREASE, MIN_SPAWN_INTERVAL,
@@ -250,10 +251,14 @@ class Game:
             spawn_x = random.randint(ARENA_WIDTH - 100, ARENA_WIDTH + 50)
         else:
             spawn_x = random.randint(-50, 0)
+        # Select enemy type based on wave (progressive unlock)
+        available_types = settings.get_enemy_types_for_wave(self.wave)
+        enemy_type = random.choice(available_types) if available_types else 'skeleton_warrior'
         new_enemy = Enemy(
             spawn_x,
             int(GROUND_Y - ENEMY_SPRITE_SIZE),
             speed_multiplier=speed_mult,
+            enemy_type=enemy_type,
         )
         self.all_sprites.add(new_enemy)
         self.enemy_list.add(new_enemy)
@@ -527,7 +532,10 @@ class Game:
         pygame.init()
         pygame.mixer.init()
 
-        self.screen = initPygame(SCREEN_WIDTH, SCREEN_HEIGHT, TITLE)
+        self.screen = initPygame(
+            SCREEN_WIDTH, SCREEN_HEIGHT, TITLE,
+            scaled=SCALED, resizable=RESIZABLE, fullscreen=START_FULLSCREEN,
+        )
         self.clock = pygame.time.Clock()
 
         # Fonts
@@ -574,6 +582,9 @@ class Game:
                     running = False
 
                 if event.type == pygame.KEYDOWN:
+                    # F11 fullscreen toggle (works in all states)
+                    if event.key == pygame.K_F11:
+                        pygame.display.toggle_fullscreen()
                     if self.state == "title":
                         if event.key == pygame.K_RETURN:
                             self.state = "char_select"
