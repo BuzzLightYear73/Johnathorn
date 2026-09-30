@@ -23,7 +23,7 @@ from settings import (
     PARTICLE_COUNT_LAND,
     SOUNDS_DIR, CHARACTER_CLASSES, DEFAULT_CHARACTER_CLASS,
     MAX_WAVES_BEFORE_BOSS, BOSS_FIREBALL_DAMAGE, BOSS_HEALTH,
-    ENEMY_SPRITE_SIZE,
+    ENEMY_SPRITE_SIZE, get_enemy_types_for_wave,
 )
 from Pygame.engine import initPygame, Background
 from Character.mainCharacter import MainCharacter
@@ -252,7 +252,7 @@ class Game:
         else:
             spawn_x = random.randint(-50, 0)
         # Select enemy type based on wave (progressive unlock)
-        available_types = settings.get_enemy_types_for_wave(self.wave)
+        available_types = get_enemy_types_for_wave(self.wave)
         enemy_type = random.choice(available_types) if available_types else 'skeleton_warrior'
         new_enemy = Enemy(
             spawn_x,
