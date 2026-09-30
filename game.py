@@ -10,7 +10,8 @@ import math
 from settings import (
     SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE, BLACK, WHITE, RED, GREEN,
     YELLOW, ORANGE, DARK_RED, HEALTH_GREEN, HEALTH_BG, IMAGES_DIR,
-    SCROLL_SPEED, CAMERA_LERP_SPEED, GROUND_Y,
+    CAMERA_LERP_SPEED, CAMERA_LEFT_MARGIN, GROUND_Y,
+    ARENA_WIDTH, ARENA_LEFT_BOUND, ARENA_RIGHT_BOUND,
     PLAYER_START_X, PLAYER_START_Y, PLAYER_HEALTH, PLAYER_ATTACK_POWER,
     ATTACK_BOOST_MULTIPLIER,
     INITIAL_SPAWN_INTERVAL, SPAWN_INTERVAL_DECREASE, MIN_SPAWN_INTERVAL,
@@ -28,7 +29,7 @@ from Character.mainCharacter import MainCharacter
 from Enemy.enemy import Enemy
 from Boss.dragon import Dragon
 from Boss.fireball import Fireball
-from Environment.platform import Platform, generate_platform
+from Environment.platform import Platform, load_wave_platforms, load_boss_platforms
 from powerUp import PowerUp, try_spawn_powerup
 from effects import EffectsManager
 
@@ -71,9 +72,8 @@ class Game:
         self.platform_list = pygame.sprite.Group()
         self.powerup_list = pygame.sprite.Group()
 
-        # Scroll / camera
-        self.scroll = 0
-        self.target_scroll = 0
+        # Camera (world-space offset, NOT cumulative)
+        self.camera_x = 0.0
 
         # Sounds (loaded lazily in run())
         self.sounds_loaded = False
@@ -133,6 +133,11 @@ class Game:
         for p in self.powerup_list:
             p.kill()
 
+        # Clear old platforms and load wave layout
+        for p in self.platform_list:
+            p.kill()
+        self._load_platforms_for_wave(self.wave)
+
         # Setup wave
         self._start_wave()
 
@@ -160,6 +165,22 @@ class Game:
             self.state = "paused"
         elif self.state == "paused":
             self.state = "playing"
+
+    def _load_platforms_for_wave(self, wave_num):
+        """Clear existing platforms and load the curated layout for a wave."""
+        for p in list(self.platform_list):
+            p.kill()
+        for plat in load_wave_platforms(wave_num):
+            self.all_sprites.add(plat)
+            self.platform_list.add(plat)
+
+    def _load_boss_platforms(self):
+        """Clear existing platforms and load the boss arena layout."""
+        for p in list(self.platform_list):
+            p.kill()
+        for plat in load_boss_platforms():
+            self.all_sprites.add(plat)
+            self.platform_list.add(plat)
 
     # ── Wave system ────────────────────────────────────────────────────
 
@@ -203,6 +224,7 @@ class Game:
         self.wave_announce_timer = 120
         self.wave_announce_text = "RIEFEL THE DRAGON"
         pygame.time.set_timer(self.ENEMY_SPAWN, 0)
+        self._load_boss_platforms()
         if self.sfx_boss_roar:
             self.sfx_boss_roar.play()
 
@@ -223,8 +245,13 @@ class Game:
             return
 
         speed_mult = 1.0 + (self.wave - 1) * ENEMY_SPEED_INCREASE_PER_WAVE
+        # Spawn from either edge of the arena for variety
+        if random.random() < 0.5:
+            spawn_x = random.randint(ARENA_WIDTH - 100, ARENA_WIDTH + 50)
+        else:
+            spawn_x = random.randint(-50, 0)
         new_enemy = Enemy(
-            random.randint(SCREEN_WIDTH, SCREEN_WIDTH + 400),
+            spawn_x,
             int(GROUND_Y - ENEMY_SPRITE_SIZE),
             speed_multiplier=speed_mult,
         )
@@ -520,12 +547,9 @@ class Game:
         self.player = MainCharacter(PLAYER_START_X, PLAYER_START_Y)
         self.background = Background()
 
-        # Initial platforms
+        # Initial platforms (wave 1 layout)
         self.all_sprites.add(self.player)
-        for px, py in [(300, 450), (550, 370), (200, 280), (700, 300)]:
-            plat = Platform(px, py)
-            self.all_sprites.add(plat)
-            self.platform_list.add(plat)
+        self._load_platforms_for_wave(1)
 
         # Game loop
         running = True
@@ -590,14 +614,22 @@ class Game:
                 if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
                     self.player.move(1)
 
-                # Camera scroll (smooth lerp toward player offset)
-                target = -(self.player.rect.x - SCREEN_WIDTH // 3)
-                self.scroll += (target - self.scroll) * CAMERA_LERP_SPEED
+                # Camera (smooth lerp toward player in world-space)
+                target_cam = self.player.rect.centerx - CAMERA_LEFT_MARGIN
+                # Clamp camera to arena bounds
+                target_cam = max(0, min(target_cam, ARENA_WIDTH - SCREEN_WIDTH))
+                self.camera_x += (target_cam - self.camera_x) * CAMERA_LERP_SPEED
+
+                # Player horizontal clamping (world-space)
+                if self.player.rect.left < ARENA_LEFT_BOUND:
+                    self.player.rect.left = ARENA_LEFT_BOUND
+                if self.player.rect.right > ARENA_RIGHT_BOUND:
+                    self.player.rect.right = ARENA_RIGHT_BOUND
 
                 # Update sprites
                 self.player.update(self.platform_list)
                 self.enemy_list.update(player_rect=self.player.rect)
-                self.platform_list.update(self.scroll * 0.1)
+                self.platform_list.update()
 
                 # Powerup update & collection
                 self.powerup_list.update()
@@ -669,6 +701,7 @@ class Game:
                 if self.wave_pause_timer > 0:
                     self.wave_pause_timer -= 1
                     if self.wave_pause_timer <= 0:
+                        self._load_platforms_for_wave(self.wave)
                         self._start_wave()
                 else:
                     self.check_wave_complete()
@@ -677,20 +710,7 @@ class Game:
                 if self.wave_announce_timer > 0:
                     self.wave_announce_timer -= 1
 
-                # Procedural platform generation
-                rightmost = max(
-                    (p.rect.right for p in self.platform_list),
-                    default=0,
-                )
-                if rightmost < SCREEN_WIDTH + 200:
-                    new_plat = generate_platform(SCREEN_WIDTH)
-                    self.all_sprites.add(new_plat)
-                    self.platform_list.add(new_plat)
 
-                # Remove off-screen platforms
-                for p in list(self.platform_list):
-                    if p.rect.right < -100:
-                        p.kill()
 
             # ── Boss update ──
             if self.state == "boss" and not self.effects.is_paused:
@@ -700,11 +720,18 @@ class Game:
                 if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
                     self.player.move(1)
 
-                # Camera stays fixed during boss fight
-                self.scroll = 0
+                # Camera stays fixed during boss fight (centered on arena)
+                boss_cam = max(0, (ARENA_WIDTH - SCREEN_WIDTH) / 2)
+                self.camera_x += (boss_cam - self.camera_x) * CAMERA_LERP_SPEED
+
+                # Player horizontal clamping
+                if self.player.rect.left < ARENA_LEFT_BOUND:
+                    self.player.rect.left = ARENA_LEFT_BOUND
+                if self.player.rect.right > ARENA_RIGHT_BOUND:
+                    self.player.rect.right = ARENA_RIGHT_BOUND
 
                 self.player.update(self.platform_list)
-                self.platform_list.update(0)
+                self.platform_list.update()
 
                 # Boss intro countdown
                 if self.boss_intro_timer > 0:
@@ -791,42 +818,44 @@ class Game:
             elif self.state in ("playing", "boss", "paused"):
                 self.screen.fill(BLACK)
                 shake = self.effects.get_shake_offset()
+                cam = int(self.camera_x)
 
-                # Background
-                self.background.draw(self.screen, self.scroll + shake[0])
+                # Background (parallax via camera offset)
+                self.background.draw(self.screen, cam + shake[0])
 
-                # Ground
+                # Ground (extends full arena width, offset by camera)
                 ground_y = int(GROUND_Y + shake[1])
                 pygame.draw.rect(self.screen, (45, 30, 15),
-                                 (0, ground_y, SCREEN_WIDTH, SCREEN_HEIGHT - ground_y))
+                                 (-cam + shake[0], ground_y,
+                                  ARENA_WIDTH, SCREEN_HEIGHT - ground_y))
                 pygame.draw.rect(self.screen, (35, 100, 30),
-                                 (0, ground_y, SCREEN_WIDTH, 6))
+                                 (-cam + shake[0], ground_y, ARENA_WIDTH, 6))
 
                 # Platforms
                 for p in self.platform_list:
                     self.screen.blit(
                         p.image,
-                        (p.rect.x + shake[0], p.rect.y + shake[1]),
+                        (p.rect.x - cam + shake[0], p.rect.y + shake[1]),
                     )
 
                 # Enemies
                 for e in self.enemy_list:
                     self.screen.blit(
                         e.image,
-                        (e.rect.x + shake[0], e.rect.y + shake[1]),
+                        (e.rect.x - cam + shake[0], e.rect.y + shake[1]),
                     )
 
                 # Boss
                 if self.boss and self.boss.state != 'dead':
                     self.screen.blit(
                         self.boss.image,
-                        (self.boss.rect.x + shake[0], self.boss.rect.y + shake[1]),
+                        (self.boss.rect.x - cam + shake[0], self.boss.rect.y + shake[1]),
                     )
                     # Draw fireballs
                     for fb in self.boss.fireballs:
                         self.screen.blit(
                             fb.image,
-                            (fb.rect.x + shake[0], fb.rect.y + shake[1]),
+                            (fb.rect.x - cam + shake[0], fb.rect.y + shake[1]),
                         )
                     # Draw breath visual
                     if self.boss.state == 'breathing' and self.boss.breath_rect:
@@ -836,7 +865,7 @@ class Game:
                         )
                         breath_surf.fill((255, 120, 0, 100))
                         self.screen.blit(breath_surf, (
-                            self.boss.breath_rect.x + shake[0],
+                            self.boss.breath_rect.x - cam + shake[0],
                             self.boss.breath_rect.y + shake[1],
                         ))
 
@@ -844,7 +873,7 @@ class Game:
                 for pu in self.powerup_list:
                     self.screen.blit(
                         pu.image,
-                        (pu.rect.x + shake[0], pu.rect.y + shake[1]),
+                        (pu.rect.x - cam + shake[0], pu.rect.y + shake[1]),
                     )
 
                 # Player (blink during i-frames)
@@ -853,7 +882,7 @@ class Game:
                 ):
                     self.screen.blit(
                         self.player.image,
-                        (self.player.rect.x + shake[0],
+                        (self.player.rect.x - cam + shake[0],
                          self.player.rect.y + shake[1]),
                     )
 

@@ -614,22 +614,28 @@ class TestGameWaveSystem(unittest.TestCase):
 
 
 class TestPlatformGeneration(unittest.TestCase):
-    """Test procedural platform generation."""
+    """Test curated platform layout loading."""
 
-    def test_platform_scrolls(self):
+    def test_platform_is_static(self):
         from Environment.platform import Platform
         plat = Platform(300, 450)
         initial_x = plat.rect.x
-        plat.update(scroll=5)
-        self.assertEqual(plat.rect.x, initial_x + 5)
+        plat.update()  # no-op now
+        self.assertEqual(plat.rect.x, initial_x)
 
-    def test_generate_platform(self):
-        from Environment.platform import generate_platform
-        from settings import SCREEN_WIDTH, PLATFORM_MIN_Y, PLATFORM_MAX_Y
-        plat = generate_platform(SCREEN_WIDTH)
-        self.assertGreaterEqual(plat.rect.x, SCREEN_WIDTH)
-        self.assertGreaterEqual(plat.rect.y, PLATFORM_MIN_Y)
-        self.assertLessEqual(plat.rect.y, PLATFORM_MAX_Y)
+    def test_load_wave_platforms(self):
+        from Environment.platform import load_wave_platforms, Platform
+        platforms = load_wave_platforms(1)
+        self.assertGreater(len(platforms), 0)
+        for plat in platforms:
+            self.assertIsInstance(plat, Platform)
+
+    def test_load_boss_platforms(self):
+        from Environment.platform import load_boss_platforms, Platform
+        platforms = load_boss_platforms()
+        self.assertGreater(len(platforms), 0)
+        for plat in platforms:
+            self.assertIsInstance(plat, Platform)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -644,9 +650,9 @@ class TestBackground(unittest.TestCase):
         from Pygame.engine import Background
         bg = Background()
         screen = pygame.display.get_surface()
-        bg.draw(screen, scroll=0)
-        bg.draw(screen, scroll=100)
-        bg.draw(screen, scroll=-50)
+        bg.draw(screen, camera_x=0)
+        bg.draw(screen, camera_x=100)
+        bg.draw(screen, camera_x=-50)
 
 
 if __name__ == "__main__":
