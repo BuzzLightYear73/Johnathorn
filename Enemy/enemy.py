@@ -41,7 +41,8 @@ class Enemy(pygame.sprite.Sprite):
 
         # ── Stats ─────────────────────────────────────────────────────
         health_mult = type_config.get('health_mult', 1.0)
-        self.health = int(ENEMY_BASE_HEALTH * health_mult)
+        self.max_health = int(ENEMY_BASE_HEALTH * health_mult)
+        self.health = self.max_health
         speed_mult = type_config.get('speed_mult', 1.0)
         self.speed = (
             random.uniform(ENEMY_SPEED_MIN, ENEMY_SPEED_MAX)

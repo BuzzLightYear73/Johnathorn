@@ -380,27 +380,31 @@ class Game:
                 (SCREEN_WIDTH // 2 - scaled.get_width() // 2, 50),
             )
 
-        # Enemy health bars
+        # Enemy health bars (world-space → screen-space with camera offset)
+        cam = int(self.camera_x)
         for e in self.enemy_list:
-            bar_w = 50
-            bar_h = 4
-            from settings import ENEMY_BASE_HEALTH
+            # Only show health bar when enemy has taken damage
+            if e.health >= e.max_health:
+                continue
+            bar_w = 40
+            bar_h = 3
+            bar_x = e.rect.x - cam + (e.rect.width - bar_w) // 2
+            bar_y = e.rect.y - 6
             self._draw_health_bar(
-                e.rect.x + (e.rect.width - bar_w) // 2,
-                e.rect.y - 8,
+                bar_x, bar_y,
                 bar_w, bar_h,
-                e.health, ENEMY_BASE_HEALTH,
+                e.health, e.max_health,
                 DARK_RED, RED,
             )
 
         # Active buffs
         buff_y = 40
         if self.player.speed_boosted:
-            buff_text = self.small_font.render("⚡ SPEED", True, (100, 200, 255))
+            buff_text = self.small_font.render(">> SPEED", True, (100, 200, 255))
             self.screen.blit(buff_text, (10, buff_y))
             buff_y += 22
         if self.player.attack_boosted:
-            buff_text = self.small_font.render("⚔ POWER", True, (255, 100, 100))
+            buff_text = self.small_font.render("** POWER", True, (255, 100, 100))
             self.screen.blit(buff_text, (10, buff_y))
 
     def _draw_title_screen(self):

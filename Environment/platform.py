@@ -20,14 +20,16 @@ class Platform(pygame.sprite.Sprite):
             raw = pygame.image.load(str(IMAGES_DIR / 'platform.png'))
             self.image = pygame.transform.scale(raw, (PLATFORM_WIDTH, PLATFORM_HEIGHT))
         except (pygame.error, FileNotFoundError):
-            # Stone platform with grass top
+            # Stone platform with grass top — semi-transparent
             self.image = pygame.Surface((PLATFORM_WIDTH, PLATFORM_HEIGHT), pygame.SRCALPHA)
-            # Stone body
-            self.image.fill((100, 80, 60))
-            # Highlight top edge
-            pygame.draw.rect(self.image, (50, 120, 40), (0, 0, PLATFORM_WIDTH, 5))
-            # Dark border
-            pygame.draw.rect(self.image, (40, 30, 20), (0, 0, PLATFORM_WIDTH, PLATFORM_HEIGHT), 2)
+            # Stone body (semi-transparent)
+            self.image.fill((80, 65, 45, 180))
+            # Grass top strip
+            pygame.draw.rect(self.image, (45, 100, 35, 200), (0, 0, PLATFORM_WIDTH, 4))
+            # Subtle highlight below grass
+            pygame.draw.rect(self.image, (90, 75, 50, 160), (0, 4, PLATFORM_WIDTH, 2))
+            # Bottom shadow
+            pygame.draw.rect(self.image, (40, 30, 20, 120), (0, PLATFORM_HEIGHT - 2, PLATFORM_WIDTH, 2))
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
