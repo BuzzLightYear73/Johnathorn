@@ -996,14 +996,14 @@ class Game:
         title = self.title_font.render("Choose Your Hero", True, (220, 180, 60))
         self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 40))
 
-        card_w, card_h = 160, 280
-        total_w = len(self._class_keys) * card_w + (len(self._class_keys) - 1) * 20
+        card_w, card_h = 170, 300
+        total_w = len(self._class_keys) * card_w + (len(self._class_keys) - 1) * 16
         start_x = (SCREEN_WIDTH - total_w) // 2
 
         for i, cls_key in enumerate(self._class_keys):
             cfg = CHARACTER_CLASSES[cls_key]
-            x = start_x + i * (card_w + 20)
-            y = 130
+            x = start_x + i * (card_w + 16)
+            y = 120
             selected = (i == self._class_index)
 
             # Card background
@@ -1020,12 +1020,12 @@ class Game:
             name_text = self.font.render(cfg['display_name'], True, WHITE if selected else (150, 150, 150))
             self.screen.blit(name_text, (x + card_w // 2 - name_text.get_width() // 2, y + 10))
 
-            # Class preview sprite
+            # Class preview sprite — use generated idle frame
             sprite_map = {
-                'warrior': 'warrior/default/warrior_new.png',
-                'mage': 'mage/mage_new.png',
-                'archer': 'archer/archer_new.png',
-                'druid': 'druid/druid_new.png',
+                'warrior': 'warrior/generated/idle/0.png',
+                'mage': 'mage/generated/idle/0.png',
+                'archer': 'archer/generated/idle/0.png',
+                'druid': 'druid/generated/idle/0.png',
             }
             sprite_path = IMAGES_DIR / sprite_map.get(cls_key, '')
             try:
@@ -1039,31 +1039,39 @@ class Game:
             except (pygame.error, FileNotFoundError):
                 pass  # No preview available
 
-            # Stats
+            # Stats — use ASCII-safe characters
+            spd_val = max(1, int(cfg['speed_mult'] * 3))
             stats = [
                 f"HP: {int(PLAYER_HEALTH * cfg['health_mult'])}",
                 f"ATK: {int(PLAYER_ATTACK_POWER * cfg['attack_mult'])}",
-                f"SPD: {'★' * max(1, int(cfg['speed_mult'] * 3))}",
+                f"SPD: {'|' * spd_val}{'.' * (4 - spd_val)}",
             ]
             if cfg.get('regen_rate', 0) > 0:
-                stats.append("REGEN: ✓")
+                stats.append("REGEN: YES")
 
             for j, stat in enumerate(stats):
                 stat_text = self.small_font.render(stat, True, (200, 200, 200))
                 self.screen.blit(stat_text, (x + 15, y + 140 + j * 28))
 
-            # Description
-            desc_text = self.small_font.render(cfg['description'], True, (160, 160, 180))
+            # Description — clip to card width
+            desc = cfg['description']
+            desc_text = self.small_font.render(desc, True, (160, 160, 180))
+            # Truncate if wider than card
+            if desc_text.get_width() > card_w - 10:
+                # Render clipped
+                clip_surf = pygame.Surface((card_w - 10, desc_text.get_height()), pygame.SRCALPHA)
+                clip_surf.blit(desc_text, (0, 0))
+                desc_text = clip_surf
             self.screen.blit(desc_text, (x + card_w // 2 - desc_text.get_width() // 2, y + card_h - 40))
 
             # Selection indicator
             if selected:
-                arrow = self.font.render("▼", True, YELLOW)
+                arrow = self.font.render("v", True, YELLOW)
                 self.screen.blit(arrow, (x + card_w // 2 - arrow.get_width() // 2, y - 30))
 
-        # Instructions
-        hint = self.small_font.render("← →  Select  |  ENTER  Confirm", True, (120, 120, 150))
-        self.screen.blit(hint, (SCREEN_WIDTH // 2 - hint.get_width() // 2, SCREEN_HEIGHT - 60))
+        # Instructions — ASCII-safe
+        hint = self.small_font.render("< >  Select  |  ENTER  Confirm", True, (120, 120, 150))
+        self.screen.blit(hint, (SCREEN_WIDTH // 2 - hint.get_width() // 2, SCREEN_HEIGHT - 50))
 
     # ── Boss HUD ───────────────────────────────────────────────────────
 
