@@ -14,6 +14,9 @@ SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 FPS = 60
 TITLE = "Johnathorn: Quest of Riefel"
+SCALED = True                   # Hardware-accelerated GPU scaling (pygame 2.0+)
+RESIZABLE = True                # Allow window resizing with aspect preservation
+START_FULLSCREEN = False        # Start in windowed mode
 
 # ── Colors ─────────────────────────────────────────────────────────────
 WHITE = (255, 255, 255)

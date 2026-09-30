@@ -5,9 +5,16 @@ import pygame
 from settings import IMAGES_DIR, SCREEN_WIDTH, SCREEN_HEIGHT, ARENA_WIDTH
 
 
-def initPygame(width, height, title):
+def initPygame(width, height, title, scaled=True, resizable=True, fullscreen=False):
     """Create and return a display surface with the given dimensions and title."""
-    screen = pygame.display.set_mode((width, height))
+    flags = 0
+    if scaled:
+        flags |= pygame.SCALED
+    if resizable:
+        flags |= pygame.RESIZABLE
+    if fullscreen:
+        flags |= pygame.FULLSCREEN
+    screen = pygame.display.set_mode((width, height), flags=flags)
     pygame.display.set_caption(title)
     return screen
 
