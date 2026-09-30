@@ -107,10 +107,26 @@ ATTACK_BOOST_DURATION = 300     # frames (5s)
 # ── Platform ───────────────────────────────────────────────────────────
 PLATFORM_WIDTH = 200
 PLATFORM_HEIGHT = 30
-PLATFORM_MIN_GAP = 120          # min horizontal gap between platforms
-PLATFORM_MAX_GAP = 300          # max horizontal gap
 PLATFORM_MIN_Y = 250            # highest platform
 PLATFORM_MAX_Y = 480            # lowest platform
+
+# ── Arena ──────────────────────────────────────────────────────────────
+ARENA_WIDTH = 1200              # total playable world width
+ARENA_LEFT_BOUND = 30           # player can't walk past (world-space)
+ARENA_RIGHT_BOUND = ARENA_WIDTH - 30
+
+# Curated platform layouts per wave (world-space coordinates)
+WAVE_PLATFORMS = {
+    1: [(250, 460), (550, 380), (850, 460)],
+    2: [(150, 460), (400, 370), (700, 370), (1000, 460), (550, 260)],
+    3: [(100, 450), (350, 350), (600, 450), (850, 350), (1100, 450), (475, 230)],
+}
+
+# Boss arena — safe platforms for dodging slam shockwave + breath
+BOSS_PLATFORMS = [
+    (150, 430), (450, 430), (750, 430),   # three ground-level safe zones
+    (300, 280), (600, 280),               # two high platforms for breath dodging
+]
 
 # ── Effects ────────────────────────────────────────────────────────────
 SCREEN_SHAKE_INTENSITY = 8
@@ -129,7 +145,7 @@ DAMAGE_NUMBER_FONT_SIZE = 20
 
 # ── Camera ─────────────────────────────────────────────────────────────
 CAMERA_LERP_SPEED = 0.08
-SCROLL_SPEED = 3
+CAMERA_LEFT_MARGIN = SCREEN_WIDTH // 3    # player kept in left third
 
 # ── Waves / Boss Gate ──────────────────────────────────────────────────
 MAX_WAVES_BEFORE_BOSS = 3

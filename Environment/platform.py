@@ -1,14 +1,18 @@
 """
-Environment/platform.py — Platform sprite and procedural generation.
+Environment/platform.py — Platform sprite and layout loading.
 """
 import pygame
-import random
 from settings import (IMAGES_DIR, PLATFORM_WIDTH, PLATFORM_HEIGHT,
-                       PLATFORM_MIN_Y, PLATFORM_MAX_Y)
+                       WAVE_PLATFORMS, BOSS_PLATFORMS)
 
 
 class Platform(pygame.sprite.Sprite):
-    """A static platform the player can land on."""
+    """A static platform the player can land on.
+
+    Platforms use world-space coordinates.  The camera offset is applied
+    at render time by the game loop, so ``rect.x / rect.y`` always
+    represent the platform's true world position.
+    """
 
     def __init__(self, x, y):
         super().__init__()
@@ -28,13 +32,20 @@ class Platform(pygame.sprite.Sprite):
         self.rect.x = x
         self.rect.y = y
 
-    def update(self, scroll):
-        """Shift platform horizontally by *scroll* pixels."""
-        self.rect.x += scroll
+    def update(self, *_args):
+        """Platforms are static in world-space; camera handles rendering offset."""
+        pass
 
 
-def generate_platform(screen_width):
-    """Create a platform just off the right edge at a random valid height."""
-    x = screen_width + random.randint(50, 200)
-    y = random.randint(PLATFORM_MIN_Y, PLATFORM_MAX_Y)
-    return Platform(x, y)
+def load_wave_platforms(wave_num):
+    """Return a list of Platform instances for the given wave.
+
+    Falls back to wave 1 layout if wave_num has no explicit entry.
+    """
+    layout = WAVE_PLATFORMS.get(wave_num, WAVE_PLATFORMS.get(1, []))
+    return [Platform(x, y) for x, y in layout]
+
+
+def load_boss_platforms():
+    """Return the curated boss arena platforms."""
+    return [Platform(x, y) for x, y in BOSS_PLATFORMS]
