@@ -1,6 +1,7 @@
 """
 Johnathorn — Enemy module
-Orc enemy with patrol, chase, attack AI and knockback support.
+Enemy types with patrol, chase, attack AI and knockback support.
+Supports skeleton_warrior, skeleton_archer, and shadow_bat via ENEMY_TYPES config.
 """
 import random
 
@@ -13,69 +14,38 @@ from settings import (
     ENEMY_BASE_HEALTH,
     ENEMY_CHASE_ACCEL,
     ENEMY_DETECTION_RANGE,
-    ENEMY_FRAME_COUNT,
     ENEMY_KNOCKBACK_FRAMES,
     ENEMY_KNOCKBACK_SPEED,
     ENEMY_SPEED_MAX,
     ENEMY_SPEED_MIN,
     ENEMY_SPRITE_SIZE,
+    ENEMY_TYPES,
     IMAGES_DIR,
 )
-
-
-def _load_frames(directory, names, size):
-    """Load individual frame PNGs from a directory and scale them.
-
-    Falls back to coloured placeholder surfaces when files are missing.
-    """
-    try:
-        frames = []
-        for name in names:
-            img = pygame.image.load(str(directory / name)).convert_alpha()
-            frames.append(pygame.transform.scale(img, (size, size)))
-        return frames
-    except (FileNotFoundError, pygame.error):
-        frames = []
-        for _ in range(max(len(names), 1)):
-            surf = pygame.Surface((size, size), pygame.SRCALPHA)
-            surf.fill((0, 180, 0, 200))
-            pygame.draw.rect(surf, (0, 100, 0), surf.get_rect(), 2)
-            frames.append(surf)
-        return frames
+from Animation.controller import AnimationController
+from Animation.loader import load_clips_from_config
 
 
 class Enemy(pygame.sprite.Sprite):
     """An enemy that patrols, chases, attacks, and can be knocked back."""
 
-    def __init__(self, x, y, speed_multiplier=1.0):
+    def __init__(self, x, y, speed_multiplier=1.0, enemy_type='skeleton_warrior'):
         super().__init__()
+        self.enemy_type = enemy_type
+        type_config = ENEMY_TYPES.get(enemy_type, {})
 
-        # ── Sprite frames ─────────────────────────────────────────────
-        archer_dir = IMAGES_DIR / "archer"
-        walk_names = [f"aWalk{i}.png" for i in range(1, 9)]
-        attack_names = ["aAttack.png"]
-
-        self.walk_frames = _load_frames(
-            archer_dir, walk_names, ENEMY_SPRITE_SIZE
-        )
-        self.attack_frames = _load_frames(
-            archer_dir, attack_names, ENEMY_SPRITE_SIZE
-        )
-
-        # Tint enemy frames red to differentiate from player
-        self.walk_frames = [self._tint(f, (180, 0, 0, 60)) for f in self.walk_frames]
-        self.attack_frames = [self._tint(f, (180, 0, 0, 60)) for f in self.attack_frames]
-
-        self.current_frames = self.walk_frames
-        self.frame_index = 0
-        self.animation_speed = 0.15
-        self.image = self.current_frames[self.frame_index]
+        # ── Load animation clips ──────────────────────────────────────
+        self._load_sprites(type_config)
+        self.image = self.animator.get_frame(True)
         self.rect = self.image.get_rect(topleft=(x, y))
 
         # ── Stats ─────────────────────────────────────────────────────
-        self.health = ENEMY_BASE_HEALTH
+        health_mult = type_config.get('health_mult', 1.0)
+        self.health = int(ENEMY_BASE_HEALTH * health_mult)
+        speed_mult = type_config.get('speed_mult', 1.0)
         self.speed = (
-            random.uniform(ENEMY_SPEED_MIN, ENEMY_SPEED_MAX) * speed_multiplier
+            random.uniform(ENEMY_SPEED_MIN, ENEMY_SPEED_MAX)
+            * speed_multiplier * speed_mult
         )
         self.velocity_x = 0.0
 
@@ -88,14 +58,35 @@ class Enemy(pygame.sprite.Sprite):
         self.attacking = False
         self.facing_right = False
 
-    @staticmethod
-    def _tint(surface, color):
-        """Return a copy of surface with a color overlay applied."""
-        tinted = surface.copy()
-        overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-        overlay.fill(color)
-        tinted.blit(overlay, (0, 0))
-        return tinted
+    def _load_sprites(self, type_config):
+        """Load enemy animation clips via AnimationController."""
+        size = (ENEMY_SPRITE_SIZE, ENEMY_SPRITE_SIZE)
+
+        if 'animations' in type_config:
+            sprite_dir = IMAGES_DIR / type_config['sprite_dir']
+            clips = load_clips_from_config(type_config['animations'], sprite_dir, size)
+            if clips:
+                self.animator = AnimationController(clips, default_clip='idle')
+                # Legacy references
+                walk_clip = clips.get('walk', {})
+                attack_clip = clips.get('attack', {})
+                self.walk_frames = walk_clip.get('frames', [])
+                self.attack_frames = attack_clip.get('frames', self.walk_frames)
+                self.current_frames = self.walk_frames
+                return
+
+        # Fallback: green placeholder sprites
+        placeholder = []
+        for _ in range(4):
+            surf = pygame.Surface(size, pygame.SRCALPHA)
+            surf.fill((0, 180, 0, 200))
+            pygame.draw.rect(surf, (0, 100, 0), surf.get_rect(), 2)
+            placeholder.append(surf)
+        clips = {'idle': placeholder, 'walk': placeholder, 'attack': placeholder}
+        self.animator = AnimationController(clips, default_clip='idle')
+        self.walk_frames = placeholder
+        self.attack_frames = placeholder
+        self.current_frames = placeholder
 
     # ── public API ────────────────────────────────────────────────────
 
@@ -136,7 +127,6 @@ class Enemy(pygame.sprite.Sprite):
                     self.velocity_x = self.speed * (
                         1 if self.velocity_x > 0 else -1
                     )
-                self.current_frames = self.walk_frames
                 self.attacking = False
             else:
                 # Out of range — patrol
@@ -176,26 +166,36 @@ class Enemy(pygame.sprite.Sprite):
         """Move leftward at base speed."""
         self.velocity_x = -self.speed
         self.facing_right = False
-        self.current_frames = self.walk_frames
         self.attacking = False
 
     def _start_attack(self):
         """Switch to attack animation and reset cooldown."""
         if self.attack_cooldown <= 0:
-            self.current_frames = self.attack_frames
             self.attacking = True
             self.attack_cooldown = ENEMY_ATTACK_COOLDOWN
 
+    def _resolve_animation_state(self):
+        """Determine which animation clip should play.
+
+        Priority: die → stagger → attack → walk → idle
+        """
+        if self.health <= 0:
+            return 'die'
+        if self.knockback_timer > 0:
+            return 'stagger'
+        if self.attacking:
+            return 'attack'
+        if abs(self.velocity_x) > 0.1:
+            return 'walk'
+        return 'idle'
+
     def _animate(self):
-        """Advance frame index and update self.image."""
-        self.frame_index += self.animation_speed
-        if self.frame_index >= len(self.current_frames):
-            self.frame_index = 0
-            if self.attacking:
-                self.attacking = False
-                self.current_frames = self.walk_frames
-        frame = self.current_frames[int(self.frame_index)]
-        if self.facing_right:
-            self.image = frame
-        else:
-            self.image = pygame.transform.flip(frame, True, False)
+        """Drive the animation controller based on current state."""
+        state = self._resolve_animation_state()
+        self.animator.play(state)
+        self.animator.update()
+        self.image = self.animator.get_frame(self.facing_right)
+
+        # Auto-end attack when animation finishes
+        if self.attacking and self.animator.finished:
+            self.attacking = False

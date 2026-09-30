@@ -251,10 +251,14 @@ class Game:
             spawn_x = random.randint(ARENA_WIDTH - 100, ARENA_WIDTH + 50)
         else:
             spawn_x = random.randint(-50, 0)
+        # Select enemy type based on wave (progressive unlock)
+        available_types = settings.get_enemy_types_for_wave(self.wave)
+        enemy_type = random.choice(available_types) if available_types else 'skeleton_warrior'
         new_enemy = Enemy(
             spawn_x,
             int(GROUND_Y - ENEMY_SPRITE_SIZE),
             speed_multiplier=speed_mult,
+            enemy_type=enemy_type,
         )
         self.all_sprites.add(new_enemy)
         self.enemy_list.add(new_enemy)

@@ -184,52 +184,143 @@ BOSS_PHASE3_THRESHOLD = 0.3
 BOSS_DEATH_FRAMES = 90        # Frames for death sequence
 
 # ── Character Classes ──────────────────────────────────────────────────
-# Each class defines sprites directory, frame names, and stat multipliers
+# Each class defines sprites directory, animation configs, and stat multipliers
 CHARACTER_CLASSES = {
     "warrior": {
         "display_name": "Warrior",
         "description": "High health, powerful melee strikes",
         "sprite_dir": "warrior",
+        "animations": {
+            "idle":    {"dir": "generated/idle",    "frames": 4, "speed": 10, "loop": True},
+            "walk":    {"dir": "generated/walk",    "frames": 8, "speed": 8,  "loop": True},
+            "attack":  {"dir": "generated/attack",  "frames": 6, "speed": 5,  "loop": False},
+            "jump":    {"dir": "generated/jump",    "frames": 2, "speed": 12, "loop": False},
+            "dash":    {"dir": "generated/dash",    "frames": 3, "speed": 4,  "loop": False},
+            "die":     {"dir": "generated/die",     "frames": 4, "speed": 8,  "loop": False},
+            "stagger": {"dir": "generated/stagger", "frames": 2, "speed": 6,  "loop": False},
+        },
+        # Legacy frame lists (used until animation system fully migrated)
         "walk_frames": [f"wWalk{i}.png" for i in range(1, 9)],
         "attack_frames": [f"wAttack{i}.png" for i in range(1, 6)],
-        "color": (200, 50, 50),       # Red tint for select screen
-        "health_mult": 1.2,           # 120 HP
-        "attack_mult": 1.3,           # High damage
-        "speed_mult": 0.9,            # Slightly slow
+        "color": (200, 50, 50),
+        "health_mult": 1.2,
+        "attack_mult": 1.3,
+        "speed_mult": 0.9,
     },
     "mage": {
         "display_name": "Mage",
         "description": "Low health, devastating magic attacks",
         "sprite_dir": "mage",
+        "animations": {
+            "idle":    {"dir": "generated/idle",    "frames": 4, "speed": 10, "loop": True},
+            "walk":    {"dir": "generated/walk",    "frames": 8, "speed": 8,  "loop": True},
+            "attack":  {"dir": "generated/attack",  "frames": 6, "speed": 5,  "loop": False},
+            "jump":    {"dir": "generated/jump",    "frames": 2, "speed": 12, "loop": False},
+            "dash":    {"dir": "generated/dash",    "frames": 3, "speed": 4,  "loop": False},
+            "die":     {"dir": "generated/die",     "frames": 4, "speed": 8,  "loop": False},
+            "stagger": {"dir": "generated/stagger", "frames": 2, "speed": 6,  "loop": False},
+        },
         "walk_frames": [f"mWalk{i}.png" for i in range(1, 8)],
         "attack_frames": ["mAttack.png"],
-        "color": (80, 80, 220),       # Blue
-        "health_mult": 0.7,           # 70 HP
-        "attack_mult": 1.8,           # Huge damage
+        "color": (80, 80, 220),
+        "health_mult": 0.7,
+        "attack_mult": 1.8,
         "speed_mult": 1.0,
     },
     "archer": {
         "display_name": "Archer",
         "description": "Fast and agile, medium damage",
         "sprite_dir": "archer",
+        "animations": {
+            "idle":    {"dir": "generated/idle",    "frames": 4, "speed": 10, "loop": True},
+            "walk":    {"dir": "generated/walk",    "frames": 8, "speed": 8,  "loop": True},
+            "attack":  {"dir": "generated/attack",  "frames": 6, "speed": 5,  "loop": False},
+            "jump":    {"dir": "generated/jump",    "frames": 2, "speed": 12, "loop": False},
+            "dash":    {"dir": "generated/dash",    "frames": 3, "speed": 4,  "loop": False},
+            "die":     {"dir": "generated/die",     "frames": 4, "speed": 8,  "loop": False},
+            "stagger": {"dir": "generated/stagger", "frames": 2, "speed": 6,  "loop": False},
+        },
         "walk_frames": [f"aWalk{i}.png" for i in range(1, 9)],
         "attack_frames": ["aAttack.png"],
-        "color": (50, 180, 50),       # Green
-        "health_mult": 0.9,           # 90 HP
+        "color": (50, 180, 50),
+        "health_mult": 0.9,
         "attack_mult": 1.0,
-        "speed_mult": 1.3,            # Fast
+        "speed_mult": 1.3,
     },
     "druid": {
         "display_name": "Druid",
         "description": "Balanced stats, regenerates health",
         "sprite_dir": "druid",
+        "animations": {
+            "idle":    {"dir": "generated/idle",    "frames": 4, "speed": 10, "loop": True},
+            "walk":    {"dir": "generated/walk",    "frames": 8, "speed": 8,  "loop": True},
+            "attack":  {"dir": "generated/attack",  "frames": 6, "speed": 5,  "loop": False},
+            "jump":    {"dir": "generated/jump",    "frames": 2, "speed": 12, "loop": False},
+            "dash":    {"dir": "generated/dash",    "frames": 3, "speed": 4,  "loop": False},
+            "die":     {"dir": "generated/die",     "frames": 4, "speed": 8,  "loop": False},
+            "stagger": {"dir": "generated/stagger", "frames": 2, "speed": 6,  "loop": False},
+        },
         "walk_frames": [f"dWalk{i}.png" for i in range(1, 8)],
         "attack_frames": ["dAttack1.png", "dAttack2.png"],
-        "color": (120, 200, 80),      # Light green
+        "color": (120, 200, 80),
         "health_mult": 1.0,
         "attack_mult": 1.0,
         "speed_mult": 1.0,
-        "regen_rate": 0.05,           # HP per frame
+        "regen_rate": 0.05,
     },
 }
 DEFAULT_CHARACTER_CLASS = "warrior"
+
+# ── Enemy Types ───────────────────────────────────────────────────────
+# Progressive unlock: wave 1 = skeleton_warrior only, wave 2+ = mix
+ENEMY_TYPES = {
+    "skeleton_warrior": {
+        "display_name": "Skeleton Warrior",
+        "sprite_dir": "skeleton_warrior",
+        "animations": {
+            "idle":    {"dir": "idle",    "frames": 4, "speed": 10, "loop": True},
+            "walk":    {"dir": "walk",    "frames": 8, "speed": 8,  "loop": True},
+            "attack":  {"dir": "attack",  "frames": 4, "speed": 6,  "loop": False},
+            "die":     {"dir": "die",     "frames": 4, "speed": 8,  "loop": False},
+            "stagger": {"dir": "stagger", "frames": 3, "speed": 6,  "loop": False},
+        },
+        "health_mult": 1.0,
+        "damage_mult": 1.0,
+        "speed_mult": 1.0,
+        "unlock_wave": 1,
+    },
+    "skeleton_archer": {
+        "display_name": "Skeleton Archer",
+        "sprite_dir": "skeleton_archer",
+        "animations": {
+            "idle":    {"dir": "idle",    "frames": 4, "speed": 10, "loop": True},
+            "walk":    {"dir": "walk",    "frames": 8, "speed": 8,  "loop": True},
+            "attack":  {"dir": "attack",  "frames": 4, "speed": 6,  "loop": False},
+            "die":     {"dir": "die",     "frames": 4, "speed": 8,  "loop": False},
+            "stagger": {"dir": "stagger", "frames": 3, "speed": 6,  "loop": False},
+        },
+        "health_mult": 0.8,
+        "damage_mult": 1.2,
+        "speed_mult": 0.9,
+        "unlock_wave": 2,
+    },
+    "shadow_bat": {
+        "display_name": "Shadow Bat",
+        "sprite_dir": "shadow_bat",
+        "animations": {
+            "idle":    {"dir": "hover",   "frames": 4, "speed": 8,  "loop": True},
+            "walk":    {"dir": "fly",     "frames": 8, "speed": 6,  "loop": True},
+            "attack":  {"dir": "dive",    "frames": 4, "speed": 4,  "loop": False},
+            "die":     {"dir": "die",     "frames": 4, "speed": 8,  "loop": False},
+        },
+        "health_mult": 0.5,
+        "damage_mult": 0.8,
+        "speed_mult": 1.5,
+        "unlock_wave": 3,
+    },
+}
+
+# Wave → available enemy types (progressive unlock)
+def get_enemy_types_for_wave(wave):
+    """Return list of enemy type keys available at the given wave."""
+    return [k for k, v in ENEMY_TYPES.items() if v.get('unlock_wave', 1) <= wave]
