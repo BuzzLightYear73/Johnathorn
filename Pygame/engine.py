@@ -14,7 +14,12 @@ def initPygame(width, height, title, scaled=True, resizable=True, fullscreen=Fal
         flags |= pygame.RESIZABLE
     if fullscreen:
         flags |= pygame.FULLSCREEN
-    screen = pygame.display.set_mode((width, height), flags=flags)
+    try:
+        # Request vsync=1 to prevent horizontal screen tearing during camera movement
+        screen = pygame.display.set_mode((width, height), flags=flags, vsync=1)
+    except pygame.error:
+        # Fallback if the display driver/OS doesn't support vsync
+        screen = pygame.display.set_mode((width, height), flags=flags)
     pygame.display.set_caption(title)
     return screen
 
