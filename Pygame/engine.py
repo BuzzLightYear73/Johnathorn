@@ -18,14 +18,20 @@ class Background(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
         try:
-            raw = pygame.image.load(str(IMAGES_DIR / 'castle.jpg'))
+            # Try new generated background first
+            raw = pygame.image.load(str(IMAGES_DIR / 'background.png'))
             self.image = pygame.transform.scale(
                 raw, (SCREEN_WIDTH * 2, SCREEN_HEIGHT)
             )
         except (pygame.error, FileNotFoundError):
-            # Graceful fallback: dark surface
-            self.image = pygame.Surface((SCREEN_WIDTH * 2, SCREEN_HEIGHT))
-            self.image.fill((20, 20, 40))
+            try:
+                raw = pygame.image.load(str(IMAGES_DIR / 'castle.jpg'))
+                self.image = pygame.transform.scale(
+                    raw, (SCREEN_WIDTH * 2, SCREEN_HEIGHT)
+                )
+            except (pygame.error, FileNotFoundError):
+                self.image = pygame.Surface((SCREEN_WIDTH * 2, SCREEN_HEIGHT))
+                self.image.fill((20, 20, 40))
         self.rect = self.image.get_rect()
 
     def draw(self, screen, scroll):
