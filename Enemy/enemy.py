@@ -1,178 +1,201 @@
-from vector import Vector
+"""
+Johnathorn — Enemy module
+Orc enemy with patrol, chase, attack AI and knockback support.
+"""
+import random
+
 import pygame
 
-#Controller button constants
+import settings
+from settings import (
+    ENEMY_ATTACK_COOLDOWN,
+    ENEMY_ATTACK_RANGE,
+    ENEMY_BASE_HEALTH,
+    ENEMY_CHASE_ACCEL,
+    ENEMY_DETECTION_RANGE,
+    ENEMY_FRAME_COUNT,
+    ENEMY_KNOCKBACK_FRAMES,
+    ENEMY_KNOCKBACK_SPEED,
+    ENEMY_SPEED_MAX,
+    ENEMY_SPEED_MIN,
+    ENEMY_SPRITE_SIZE,
+    IMAGES_DIR,
+)
 
 
+def _load_frames(directory, names, size):
+    """Load individual frame PNGs from a directory and scale them.
 
-class Enemy:
-
-    
-    def __init__(self, sheet, x_pos, y_pos, x_vel, y_vel, health, target, bounding_box):
-        self.bbox = bounding_box
-        self.health = health
-        self.pos = Vector(0.0, 0.0)
-        self.pos.x = x_pos
-        self.pos.y = y_pos
-        self.velocity = Vector(0.0, 0.0)
-        self.velocity.x = x_vel
-        self.velocity.y = y_vel
-        self.speedlimit = self.velocity
-        self.target = target
-
-        #Stuff with spread sheet
-
-    def set_vel(self, new_x ,new_y):
-        self.velocity = (new_x, new_y)
-
-    def get_vel(self):
-        return self.velocity
-
-    def remove_health(self, health):
-        self.health -= health
-
-    def set_pos(self, new_x, new_y):
-        self.pos = (new_x, new_y)
-
-    def get_pos(self):
-        return self.pos
-    
-    def attack(self):
-        #self.expressions["attack"]
-        self.target.remove_health(1)
-
-    def draw(self, window):
-        img = self.expressions[self.expression]
-        window.blit (img, (round(self.pos.x), round(self.pos.y)))
+    Falls back to coloured placeholder surfaces when files are missing.
+    """
+    try:
+        frames = []
+        for name in names:
+            img = pygame.image.load(str(directory / name)).convert_alpha()
+            frames.append(pygame.transform.scale(img, (size, size)))
+        return frames
+    except (FileNotFoundError, pygame.error):
+        frames = []
+        for _ in range(max(len(names), 1)):
+            surf = pygame.Surface((size, size), pygame.SRCALPHA)
+            surf.fill((0, 180, 0, 200))
+            pygame.draw.rect(surf, (0, 100, 0), surf.get_rect(), 2)
+            frames.append(surf)
+        return frames
 
 
+class Enemy(pygame.sprite.Sprite):
+    """An enemy that patrols, chases, attacks, and can be knocked back."""
 
-    def simulate(self, millisecs, width, height):
-        self.move(millisecs)
-        self.bounce(width, height)
-        self.simulateGravity()
+    def __init__(self, x, y, speed_multiplier=1.0):
+        super().__init__()
 
+        # ── Sprite frames ─────────────────────────────────────────────
+        archer_dir = IMAGES_DIR / "archer"
+        walk_names = [f"aWalk{i}.png" for i in range(1, 9)]
+        attack_names = ["aAttack.png"]
 
-    def bounce (self, width, height):
+        self.walk_frames = _load_frames(
+            archer_dir, walk_names, ENEMY_SPRITE_SIZE
+        )
+        self.attack_frames = _load_frames(
+            archer_dir, attack_names, ENEMY_SPRITE_SIZE
+        )
 
-        img = self.expressions[self.expression]
-        print("bounce")
-        
-        if (self.pos.x + img.get_width()) > width:
-            self.pos.x = width - img.get_width()
-            
-        elif (self.pos.x) < 0:
-            self.pos.x = 0 
-            
-            
-        if (self.pos.y + img.get_height()) > height:
-            self.pos.y = height - img.get_height()
-            
-            
-        elif (self.pos.y) < 0:
-            self.pos.y = 0
-            self.attack()
-            self.velocity.y = (-1)*self.velocity.y
+        # Tint enemy frames red to differentiate from player
+        self.walk_frames = [self._tint(f, (180, 0, 0, 60)) for f in self.walk_frames]
+        self.attack_frames = [self._tint(f, (180, 0, 0, 60)) for f in self.attack_frames]
 
-    def simulateGravity(self):
-        if (self.pos.y + 105 <  960 ):
-            self.velocity.y = self.velocity.y + 10
+        self.current_frames = self.walk_frames
+        self.frame_index = 0
+        self.animation_speed = 0.15
+        self.image = self.current_frames[self.frame_index]
+        self.rect = self.image.get_rect(topleft=(x, y))
 
-    def draw_health(self, window):
-            top = int(window.get_width()*0.05)
-            right = int(window.get_width()) - (self.health)
-            height = int(window.get_height()*0.02)
-            width = max(int(window.get_width() - (right + 20)),0)
-            enemy_health = window.subsurface((right, top, width, height))
-            enemy_health.fill(pygame.color.Color("green"))
-            enemy_health.blit(window,(right,top))
+        # ── Stats ─────────────────────────────────────────────────────
+        self.health = ENEMY_BASE_HEALTH
+        self.speed = (
+            random.uniform(ENEMY_SPEED_MIN, ENEMY_SPEED_MAX) * speed_multiplier
+        )
+        self.velocity_x = 0.0
 
+        # ── Knockback ─────────────────────────────────────────────────
+        self.knockback_timer = 0
+        self.knockback_dir = 0
 
-    def apply_steering (self):
-        for s in self.steering:
-            self.velocity = self.velocity.plus(s)
-            
-    def seek (self, target, weight):
-        desired_direction = target.pos.minus(self.pos).normalize()
-        max_speed = self.speedlimit.length()
-        desired_velocity = desired_direction.times(max_speed)
+        # ── Attack ────────────────────────────────────────────────────
+        self.attack_cooldown = 0
+        self.attacking = False
+        self.facing_right = False
 
-        self.steering += [desired_velocity.minus(self.velocity).times(weight)]
+    @staticmethod
+    def _tint(surface, color):
+        """Return a copy of surface with a color overlay applied."""
+        tinted = surface.copy()
+        overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+        overlay.fill(color)
+        tinted.blit(overlay, (0, 0))
+        return tinted
 
+    # ── public API ────────────────────────────────────────────────────
 
-    def arrive (self, target, weight):
+    def update(self, player_rect=None):
+        """Advance enemy AI by one frame.
 
-        target_distance = target.pos.minus(self.pos).length()
-        max_speed = self.speedlimit.length()
-        slow_radius = 50
-
-        if target_distance > slow_radius:
-
-            self.seek(target, weight)
-            
-
-        else:
-
-            desired_speed = max_speed * (target_distance / slow_radius)
-            if desired_speed > max_speed:
-                desired_speed = max_speed
-            
-            desired_direction = target.pos.minus(self.pos).normalize()
-            desired_velocity = desired_direction.times(desired_speed/target_distance)
-
-            self.steering += [desired_velocity.minus(self.velocity).times(weight)]
-
-    def move (self, dt, width, height):
-        print("move")
-        self.bounce(width, height)
-        self.clamp_v ()
-        self.stop_v ()
-        self.pos = self.pos.plus(self.velocity.times(float(dt)/1000))
-
-    def apply_impulse (self, j, n):
-        """ j is the impulse; n the collision normal, i.e. the
-        direction along which the impact happens."""
-        self.v = self.v.plus(n.times(j / self.m))
-
-
-    def repair_position (self, rel_pos, other):
-        """ If two objects overlap, move them apart so that they are
-        touching but not overlapping. How much each of the objects
-        gets moved depends on its mass, so that objects with an
-        infinite mass do not get moved."""
-        # dividing by 10, because the length of our normal vector is 10 pixels
-        repair = float(self.r + other.r - rel_pos.length())#/10
-        rel_pos.normalize()
-        
-        if math.isinf (self.m):
-            other.pos = other.pos.plus(rel_pos.times(-1).times(repair))
-        elif math.isinf (other.m):
-            self.pos = self.pos.plus(rel_pos.times(repair))
-        else:
-            self.pos = self.pos.plus(rel_pos.times(repair*other.m/(self.m+other.m)))
-            other.p = other.pos.plus(rel_pos.times(-1).times(repair*self.m/(self.m+other.m)))
-
-
-    def clamp_v (self):
-        """ Reset the velocity in either dimension to the speed limit
-        if it should be faster than the speed limit."""
-        if self.velocity.length() > self.speedlimit.length():
-            self.velocity = self.velocity.normalize().times(self.speedlimit.length())
-
-
-    def stop_v (self):
-        """ Reset the velocity to 0 if it gets very close. """
-
-        if self.velocity.length() < 5:
-            self.velocity = Vector (0,0)
-            print("stop_v")
-            self.attack()
-
-    def get_bbox (self):
+        Parameters
+        ----------
+        player_rect : pygame.Rect | None
+            The player's rect used for detection / chasing / attacking.
         """
-        Calculates the screen coordinate of the bounding box.
-        """
-        return pygame.Rect(self.pos.x, self.pos.y, self.bbox[2], self.bbox[3])
-        
+        # Tick cooldown
+        if self.attack_cooldown > 0:
+            self.attack_cooldown -= 1
 
-    
+        # 1. Knockback overrides everything
+        if self.knockback_timer > 0:
+            self.rect.x += self.knockback_dir * ENEMY_KNOCKBACK_SPEED
+            self.knockback_timer -= 1
+            self._animate()
+            return
+
+        # 2. Player interaction
+        if player_rect is not None:
+            dist = abs(self.rect.centerx - player_rect.centerx)
+
+            if dist <= ENEMY_ATTACK_RANGE:
+                # In attack range — stop and attack
+                self.velocity_x = 0.0
+                self._start_attack()
+            elif dist <= ENEMY_DETECTION_RANGE:
+                # Chase the player
+                direction = 1 if player_rect.centerx > self.rect.centerx else -1
+                self.facing_right = direction == 1
+                self.velocity_x += direction * ENEMY_CHASE_ACCEL
+                # Clamp chase speed
+                if abs(self.velocity_x) > self.speed:
+                    self.velocity_x = self.speed * (
+                        1 if self.velocity_x > 0 else -1
+                    )
+                self.current_frames = self.walk_frames
+                self.attacking = False
+            else:
+                # Out of range — patrol
+                self._patrol()
+        else:
+            # No player info — patrol
+            self._patrol()
+
+        self.rect.x += int(self.velocity_x)
+
+        # 4. Remove if off-screen left
+        if self.rect.right < 0:
+            self.kill()
+
+        # 5. Animate
+        self._animate()
+
+    def take_damage(self, damage):
+        """Subtract *damage* from health.
+
+        Returns
+        -------
+        bool
+            ``True`` if the enemy died (health <= 0), ``False`` otherwise.
+        """
+        self.health -= damage
+        return self.health <= 0
+
+    def apply_knockback(self, direction):
+        """Push the enemy in *direction* (1 = right, -1 = left)."""
+        self.knockback_timer = ENEMY_KNOCKBACK_FRAMES
+        self.knockback_dir = direction
+
+    # ── private helpers ───────────────────────────────────────────────
+
+    def _patrol(self):
+        """Move leftward at base speed."""
+        self.velocity_x = -self.speed
+        self.facing_right = False
+        self.current_frames = self.walk_frames
+        self.attacking = False
+
+    def _start_attack(self):
+        """Switch to attack animation and reset cooldown."""
+        if self.attack_cooldown <= 0:
+            self.current_frames = self.attack_frames
+            self.attacking = True
+            self.attack_cooldown = ENEMY_ATTACK_COOLDOWN
+
+    def _animate(self):
+        """Advance frame index and update self.image."""
+        self.frame_index += self.animation_speed
+        if self.frame_index >= len(self.current_frames):
+            self.frame_index = 0
+            if self.attacking:
+                self.attacking = False
+                self.current_frames = self.walk_frames
+        frame = self.current_frames[int(self.frame_index)]
+        if self.facing_right:
+            self.image = frame
+        else:
+            self.image = pygame.transform.flip(frame, True, False)

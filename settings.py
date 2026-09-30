@@ -1,0 +1,216 @@
+"""
+Johnathorn — Central Settings & Constants
+All game tuning knobs in one place. No magic numbers elsewhere.
+"""
+from pathlib import Path
+
+# ── Paths ──────────────────────────────────────────────────────────────
+BASE_DIR = Path(__file__).resolve().parent
+IMAGES_DIR = BASE_DIR / "images"
+SOUNDS_DIR = BASE_DIR / "Sounds"
+
+# ── Display ────────────────────────────────────────────────────────────
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+FPS = 60
+TITLE = "Johnathorn: Quest of Riefel"
+
+# ── Colors ─────────────────────────────────────────────────────────────
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)
+ORANGE = (255, 165, 0)
+DARK_RED = (139, 0, 0)
+HEALTH_GREEN = (50, 205, 50)
+HEALTH_BG = (60, 60, 60)
+
+# ── Physics ────────────────────────────────────────────────────────────
+GRAVITY = 0.8
+GROUND_Y = 550
+
+# ── Player ─────────────────────────────────────────────────────────────
+PLAYER_START_X = 100
+PLAYER_START_Y = 400
+PLAYER_HEALTH = 100
+PLAYER_ATTACK_POWER = 25
+PLAYER_SPRITE_SIZE = 80
+PLAYER_FRAME_COUNT = 4
+
+# Movement (acceleration-based)
+PLAYER_ACCEL = 0.9
+PLAYER_FRICTION = 0.82
+PLAYER_MAX_SPEED = 6.0
+
+# Jump
+JUMP_SPEED = -13.5
+COYOTE_TIME = 6        # frames after walking off edge where jump still works
+JUMP_BUFFER = 6        # frames before landing where jump press is queued
+VARIABLE_JUMP_CUT = 0.4  # multiply velocity_y by this when releasing jump early
+
+# I-frames
+IFRAMES_DURATION = 60   # frames of invincibility after taking a hit
+IFRAMES_BLINK_RATE = 4   # blink every N frames during i-frames
+
+# Dash
+DASH_SPEED = 15.0
+DASH_DURATION = 8       # frames
+DASH_COOLDOWN = 60      # frames
+
+# Attack
+ATTACK_DURATION = 20    # frames
+ATTACK_LUNGE = 3.0      # forward pixels on attack
+ATTACK_HITBOX_INFLATE = 30  # extra width for attack rect
+ATTACK_HITBOX_OFFSET = 25   # offset in facing direction
+
+# ── Enemy ──────────────────────────────────────────────────────────────
+ENEMY_BASE_HEALTH = 50
+ENEMY_SPEED_MIN = 1.0
+ENEMY_SPEED_MAX = 3.0
+ENEMY_DETECTION_RANGE = 250  # pixels — start chasing player
+ENEMY_ATTACK_RANGE = 60      # pixels — stop and attack
+ENEMY_CHASE_ACCEL = 0.15
+ENEMY_KNOCKBACK_SPEED = 10
+ENEMY_KNOCKBACK_FRAMES = 12
+ENEMY_ATTACK_COOLDOWN = 60   # frames between attacks
+ENEMY_ATTACK_DAMAGE = 15
+ENEMY_SPRITE_SIZE = 80
+ENEMY_FRAME_COUNT = 4
+
+# ── Waves ──────────────────────────────────────────────────────────────
+INITIAL_SPAWN_INTERVAL = 3000   # ms
+SPAWN_INTERVAL_DECREASE = 200   # ms per wave
+MIN_SPAWN_INTERVAL = 1000       # ms
+ENEMIES_PER_WAVE_BASE = 3
+ENEMIES_PER_WAVE_INCREMENT = 1
+WAVE_PAUSE_DURATION = 120       # frames between waves
+ENEMY_SPEED_INCREASE_PER_WAVE = 0.3
+
+# ── Scoring ────────────────────────────────────────────────────────────
+KILL_SCORE = 100
+COMBO_BONUS = 50
+COMBO_WINDOW = 90  # frames (1.5 seconds at 60fps)
+
+# ── Power-ups ──────────────────────────────────────────────────────────
+POWERUP_DROP_CHANCE = 0.20
+POWERUP_SIZE = 30
+POWERUP_BOB_SPEED = 0.05
+POWERUP_BOB_AMPLITUDE = 5
+HEALTH_RESTORE = 25
+SPEED_BOOST_AMOUNT = 3.0
+SPEED_BOOST_DURATION = 300      # frames (5s)
+ATTACK_BOOST_MULTIPLIER = 2.0
+ATTACK_BOOST_DURATION = 300     # frames (5s)
+
+# ── Platform ───────────────────────────────────────────────────────────
+PLATFORM_WIDTH = 200
+PLATFORM_HEIGHT = 30
+PLATFORM_MIN_GAP = 120          # min horizontal gap between platforms
+PLATFORM_MAX_GAP = 300          # max horizontal gap
+PLATFORM_MIN_Y = 250            # highest platform
+PLATFORM_MAX_Y = 480            # lowest platform
+
+# ── Effects ────────────────────────────────────────────────────────────
+SCREEN_SHAKE_INTENSITY = 8
+SCREEN_SHAKE_DECAY = 0.82
+HIT_PAUSE_FRAMES = 3
+PARTICLE_COUNT_DEATH = 15
+PARTICLE_COUNT_HIT = 8
+PARTICLE_COUNT_LAND = 6
+PARTICLE_COUNT_DASH = 3
+PARTICLE_GRAVITY = 0.15
+PARTICLE_LIFETIME_MIN = 15
+PARTICLE_LIFETIME_MAX = 35
+DAMAGE_NUMBER_SPEED = 1.5
+DAMAGE_NUMBER_LIFETIME = 45     # frames
+DAMAGE_NUMBER_FONT_SIZE = 20
+
+# ── Camera ─────────────────────────────────────────────────────────────
+CAMERA_LERP_SPEED = 0.08
+SCROLL_SPEED = 3
+
+# ── Waves / Boss Gate ──────────────────────────────────────────────────
+MAX_WAVES_BEFORE_BOSS = 3
+
+# ── Boss (Dragon) ──────────────────────────────────────────────────────
+BOSS_HEALTH = 500
+BOSS_SPRITE_SCALE = 3.0       # Scale factor for dragon sprites
+BOSS_HOVER_Y = 120            # Y position when hovering
+BOSS_HOVER_SPEED = 0.02       # Sinusoidal hover bob speed
+BOSS_HOVER_AMPLITUDE = 15     # Hover bob pixels
+
+# Fireball attack
+BOSS_FIREBALL_SPEED = 5
+BOSS_FIREBALL_DAMAGE = 20
+BOSS_FIREBALL_SIZE = 50       # Scaled fireball sprite size
+BOSS_FIREBALL_COOLDOWN = 120  # Frames between fireballs (phase 1)
+
+# Fire breath attack
+BOSS_BREATH_DAMAGE = 3        # Damage per frame of overlap
+BOSS_BREATH_DURATION = 60     # Frames breath stays active
+BOSS_BREATH_COOLDOWN = 180    # Frames between breaths
+
+# Ground slam
+BOSS_SLAM_DAMAGE = 30
+BOSS_SLAM_SPEED = 12          # Descent speed
+BOSS_SLAM_COOLDOWN = 240      # Frames between slams
+
+# Phase thresholds (fraction of max health)
+BOSS_PHASE2_THRESHOLD = 0.6
+BOSS_PHASE3_THRESHOLD = 0.3
+
+# Death
+BOSS_DEATH_FRAMES = 90        # Frames for death sequence
+
+# ── Character Classes ──────────────────────────────────────────────────
+# Each class defines sprites directory, frame names, and stat multipliers
+CHARACTER_CLASSES = {
+    "warrior": {
+        "display_name": "Warrior",
+        "description": "High health, powerful melee strikes",
+        "sprite_dir": "warrior",
+        "walk_frames": [f"wWalk{i}.png" for i in range(1, 9)],
+        "attack_frames": [f"wAttack{i}.png" for i in range(1, 6)],
+        "color": (200, 50, 50),       # Red tint for select screen
+        "health_mult": 1.2,           # 120 HP
+        "attack_mult": 1.3,           # High damage
+        "speed_mult": 0.9,            # Slightly slow
+    },
+    "mage": {
+        "display_name": "Mage",
+        "description": "Low health, devastating magic attacks",
+        "sprite_dir": "mage",
+        "walk_frames": [f"mWalk{i}.png" for i in range(1, 8)],
+        "attack_frames": ["mAttack.png"],
+        "color": (80, 80, 220),       # Blue
+        "health_mult": 0.7,           # 70 HP
+        "attack_mult": 1.8,           # Huge damage
+        "speed_mult": 1.0,
+    },
+    "archer": {
+        "display_name": "Archer",
+        "description": "Fast and agile, medium damage",
+        "sprite_dir": "archer",
+        "walk_frames": [f"aWalk{i}.png" for i in range(1, 9)],
+        "attack_frames": ["aAttack.png"],
+        "color": (50, 180, 50),       # Green
+        "health_mult": 0.9,           # 90 HP
+        "attack_mult": 1.0,
+        "speed_mult": 1.3,            # Fast
+    },
+    "druid": {
+        "display_name": "Druid",
+        "description": "Balanced stats, regenerates health",
+        "sprite_dir": "druid",
+        "walk_frames": [f"dWalk{i}.png" for i in range(1, 8)],
+        "attack_frames": ["dAttack1.png", "dAttack2.png"],
+        "color": (120, 200, 80),      # Light green
+        "health_mult": 1.0,
+        "attack_mult": 1.0,
+        "speed_mult": 1.0,
+        "regen_rate": 0.05,           # HP per frame
+    },
+}
+DEFAULT_CHARACTER_CLASS = "warrior"
