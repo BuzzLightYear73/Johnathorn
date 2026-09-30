@@ -58,25 +58,20 @@ class TestAnimationController(unittest.TestCase):
         self.assertEqual(ac.frame_index, 0)
 
     def test_frame_advances_after_speed_ticks(self):
-        """Frame index should advance after 'speed' ticks."""
+        """Procedural phase should advance after ticks."""
         ac = AnimationController(self.clips, default_clip='idle', frame_duration=4)
-        self.assertEqual(ac.frame_index, 0)
-        # 3 ticks — not enough
-        for _ in range(3):
-            ac.update()
-        self.assertEqual(ac.frame_index, 0)
-        # 4th tick advances to frame 1
+        self.assertEqual(ac._phase, 0.0)
         ac.update()
-        self.assertEqual(ac.frame_index, 1)
+        # Phase should have advanced
+        self.assertGreater(ac._phase, 0.0)
 
-    def test_looping_clip_wraps_around(self):
-        """A looping clip should wrap back to frame 0."""
+    def test_looping_clip_wraps_phase(self):
+        """A looping clip should continuously advance phase without finishing."""
         ac = AnimationController(self.clips, default_clip='idle', frame_duration=1)
-        # idle has 4 frames, speed=1 → each tick advances frame
-        for _ in range(4):
+        for _ in range(20):
             ac.update()
-        self.assertEqual(ac.frame_index, 0)  # wrapped
         self.assertFalse(ac.finished)
+        self.assertGreater(ac._phase, 0)
 
     def test_one_shot_clip_signals_finished(self):
         """A one-shot clip should signal finished after all frames."""
@@ -139,20 +134,21 @@ class TestAnimationController(unittest.TestCase):
         self.assertEqual(frame.get_at((0, 0)), pygame.Color(255, 0, 255, 255))
 
     def test_play_same_clip_does_not_restart(self):
-        """Playing the same clip again should not restart the animation."""
+        """Playing the same clip again should not restart the animation phase."""
         ac = AnimationController(self.clips, default_clip='idle', frame_duration=1)
-        ac.update()  # advance to frame 1
-        self.assertEqual(ac.frame_index, 1)
+        ac.update()  # advance phase
+        phase_before = ac._phase
         ac.play('idle')  # play same clip
-        self.assertEqual(ac.frame_index, 1)  # should NOT reset
+        # Phase should NOT reset (same clip, no force_restart)
+        self.assertEqual(ac._phase, phase_before)
 
-    def test_force_restart_resets_frame(self):
-        """force_restart=True should reset the clip even if already playing."""
+    def test_force_restart_resets_phase(self):
+        """force_restart=True should reset the animation phase."""
         ac = AnimationController(self.clips, default_clip='idle', frame_duration=1)
-        ac.update()  # advance to frame 1
-        self.assertEqual(ac.frame_index, 1)
+        ac.update()  # advance phase
+        self.assertGreater(ac._phase, 0)
         ac.play('idle', force_restart=True)
-        self.assertEqual(ac.frame_index, 0)
+        self.assertEqual(ac._phase, 0.0)
 
 
 class TestAnimationLoader(unittest.TestCase):
