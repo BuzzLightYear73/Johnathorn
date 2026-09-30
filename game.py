@@ -77,11 +77,19 @@ class Game:
 
         # Sounds (loaded lazily in run())
         self.sounds_loaded = False
-        self.bg_music = None
-        self.sword_swing = None
-        self.sword_hit = None
-        self.enemy_death = None
-        self.game_over_sound = None
+        self._bgm_path = None
+        self.sfx_sword_swing = None
+        self.sfx_hit = None
+        self.sfx_enemy_death = None
+        self.sfx_player_hurt = None
+        self.sfx_jump = None
+        self.sfx_dash = None
+        self.sfx_pickup = None
+        self.sfx_arrow_fire = None
+        self.sfx_magic_fire = None
+        self.sfx_boss_roar = None
+        self.sfx_fireball = None
+        self.sfx_victory = None
 
         # Fonts
         self.font = None
@@ -131,18 +139,20 @@ class Game:
         # Start spawn timer
         pygame.time.set_timer(self.ENEMY_SPAWN, self.get_spawn_interval())
 
-        # Music
-        if self.bg_music:
-            self.bg_music.play(-1)
+        # Music — use pygame.mixer.music for BGM looping
+        if self._bgm_path:
+            try:
+                pygame.mixer.music.load(self._bgm_path)
+                pygame.mixer.music.set_volume(0.4)
+                pygame.mixer.music.play(-1)
+            except (pygame.error, FileNotFoundError):
+                pass
 
     def game_over(self):
         """Transition to game over state."""
         self.state = "game_over"
         pygame.time.set_timer(self.ENEMY_SPAWN, 0)  # stop spawning
-        if self.bg_music:
-            self.bg_music.stop()
-        if self.game_over_sound:
-            self.game_over_sound.play()
+        pygame.mixer.music.stop()
 
     def toggle_pause(self):
         """Toggle between playing and paused."""
@@ -193,13 +203,16 @@ class Game:
         self.wave_announce_timer = 120
         self.wave_announce_text = "RIEFEL THE DRAGON"
         pygame.time.set_timer(self.ENEMY_SPAWN, 0)
+        if self.sfx_boss_roar:
+            self.sfx_boss_roar.play()
 
     def _victory(self):
         """Player defeated the boss."""
         self.state = "victory"
         self.victory_timer = 0
-        if self.bg_music:
-            self.bg_music.stop()
+        pygame.mixer.music.stop()
+        if self.sfx_victory:
+            self.sfx_victory.play()
 
     def _spawn_enemy(self):
         """Spawn a single enemy for the current wave."""
@@ -252,14 +265,40 @@ class Game:
         """Load sound assets. Call once after pygame.mixer.init()."""
         if self.sounds_loaded:
             return
+
+        sfx_dir = SOUNDS_DIR / "sfx"
+
+        def _load_sfx(name):
+            """Try loading a SFX .wav file, return Sound or None."""
+            try:
+                snd = pygame.mixer.Sound(str(sfx_dir / name))
+                snd.set_volume(0.5)
+                return snd
+            except (FileNotFoundError, pygame.error):
+                return None
+
+        # SFX
+        self.sfx_sword_swing = _load_sfx("sword_swing.wav")
+        self.sfx_hit = _load_sfx("hit.wav")
+        self.sfx_enemy_death = _load_sfx("enemy_death.wav")
+        self.sfx_player_hurt = _load_sfx("player_hurt.wav")
+        self.sfx_jump = _load_sfx("jump.wav")
+        self.sfx_dash = _load_sfx("dash.wav")
+        self.sfx_pickup = _load_sfx("pickup.wav")
+        self.sfx_arrow_fire = _load_sfx("arrow_fire.wav")
+        self.sfx_magic_fire = _load_sfx("magic_fire.wav")
+        self.sfx_boss_roar = _load_sfx("boss_roar.wav")
+        self.sfx_fireball = _load_sfx("fireball.wav")
+        self.sfx_victory = _load_sfx("victory.wav")
+
+        # BGM — use pygame.mixer.music for proper looping
         try:
-            # Only opening_sound.ogg is actual BGM; sound.ogg/sound1/sound2 are
-            # full music tracks from the original project, not SFX.
-            self.bg_music = pygame.mixer.Sound(str(SOUNDS_DIR / "opening_sound.ogg"))
-            self.bg_music.set_volume(0.4)
-            self.sounds_loaded = True
-        except (FileNotFoundError, pygame.error):
-            self.sounds_loaded = True
+            self._bgm_path = str(SOUNDS_DIR / "opening_sound.ogg")
+            # We'll start music in start_game(), not here
+        except Exception:
+            self._bgm_path = None
+
+        self.sounds_loaded = True
 
     # ── Drawing helpers ────────────────────────────────────────────────
 
@@ -564,12 +603,16 @@ class Game:
                 self.powerup_list.update()
                 for pu in pygame.sprite.spritecollide(self.player, self.powerup_list, False):
                     pu.apply(self.player)
+                    if self.sfx_pickup:
+                        self.sfx_pickup.play()
 
                 # Enemy damage to player
                 if not self.player.invincible:
                     for e in self.enemy_list:
                         if pygame.sprite.collide_rect(self.player, e):
                             self.player.take_damage(ENEMY_ATTACK_DAMAGE)
+                            if self.sfx_player_hurt:
+                                self.sfx_player_hurt.play()
                             self.effects.screen_shake()
                             self.effects.spawn_particles(
                                 self.player.rect.centerx,
@@ -605,6 +648,8 @@ class Game:
                             e.rect.centerx, e.rect.centery,
                             RED, PARTICLE_COUNT_DEATH,
                         )
+                        if self.sfx_enemy_death:
+                            self.sfx_enemy_death.play()
 
                         # Score
                         self.on_enemy_killed()
@@ -726,6 +771,8 @@ class Game:
                 self.powerup_list.update()
                 for pu in pygame.sprite.spritecollide(self.player, self.powerup_list, False):
                     pu.apply(self.player)
+                    if self.sfx_pickup:
+                        self.sfx_pickup.play()
 
                 self.update_combo()
                 if self.wave_announce_timer > 0:
@@ -847,11 +894,19 @@ class Game:
     def _handle_attack(self):
         """Handle attack input — hits enemies and/or boss."""
         hits = self.player.attack(self.enemy_list)
-        if self.sword_swing:
-            self.sword_swing.play()
+
+        # Play class-appropriate attack SFX
+        if self.player._is_ranged:
+            sfx = self.sfx_arrow_fire if self.player._proj_type == 'arrow' else self.sfx_magic_fire
+            if sfx and self.player.attack_cooldown == self.player._ranged_cooldown:
+                sfx.play()
+        else:
+            if self.sfx_sword_swing:
+                self.sfx_sword_swing.play()
+
         if hits:
-            if self.sword_hit:
-                self.sword_hit.play()
+            if self.sfx_hit:
+                self.sfx_hit.play()
             self.effects.hit_pause()
             self.effects.screen_shake(SCREEN_SHAKE_INTENSITY // 2)
             for enemy in hits:
