@@ -6,6 +6,8 @@ i-frames, dash, and attack mechanics.
 import pygame
 import settings
 from Character.projectile import PlayerProjectile
+from Animation.controller import AnimationController
+from Animation.loader import load_clips_from_config
 
 
 class MainCharacter(pygame.sprite.Sprite):
@@ -21,10 +23,7 @@ class MainCharacter(pygame.sprite.Sprite):
 
         # ── Sprite / image setup ──────────────────────────────────────
         self._load_sprites()
-        self.frame_index = 0
-        self.anim_timer = 0
-        self.anim_speed = 8  # frames between sprite changes
-        self.image = self.frames[self.frame_index]
+        self.image = self.animator.get_frame(True)
         self.rect = self.image.get_rect(topleft=(x, y))
 
         # ── Core state ────────────────────────────────────────────────
@@ -73,36 +72,58 @@ class MainCharacter(pygame.sprite.Sprite):
     # ── Asset loading ─────────────────────────────────────────────────
 
     def _load_sprites(self):
-        """Load hero frames from class-specific PNGs, with a colour fallback."""
-        size = settings.PLAYER_SPRITE_SIZE
+        """Load hero animation clips via AnimationController."""
+        size = (settings.PLAYER_SPRITE_SIZE, settings.PLAYER_SPRITE_SIZE)
         config = self.class_config
         sprite_dir = settings.IMAGES_DIR / config['sprite_dir']
 
-        walk_names = config['walk_frames']
-        attack_names = config['attack_frames']
+        # Try new animation config first
+        if 'animations' in config:
+            clips = load_clips_from_config(config['animations'], sprite_dir, size)
+            if clips:
+                self.animator = AnimationController(clips, default_clip='idle')
+                # Keep legacy references for any code that still reads them
+                idle_clip = clips.get('idle', {})
+                walk_clip = clips.get('walk', {})
+                attack_clip = clips.get('attack', {})
+                self.walk_frames = (idle_clip.get('frames', []) or
+                                    walk_clip.get('frames', []))
+                self.attack_frames = attack_clip.get('frames', self.walk_frames)
+                self.frames = self.walk_frames
+                return
+
+        # Legacy fallback: load from filename lists
+        walk_names = config.get('walk_frames', [])
+        attack_names = config.get('attack_frames', [])
 
         try:
-            self.walk_frames = []
+            walk_frames = []
             for name in walk_names:
                 img = pygame.image.load(str(sprite_dir / name)).convert_alpha()
-                self.walk_frames.append(pygame.transform.scale(img, (size, size)))
+                walk_frames.append(pygame.transform.scale(img, size))
 
-            self.attack_frames = []
+            attack_frames = []
             for name in attack_names:
                 img = pygame.image.load(str(sprite_dir / name)).convert_alpha()
-                self.attack_frames.append(pygame.transform.scale(img, (size, size)))
+                attack_frames.append(pygame.transform.scale(img, size))
 
-            self.frames = self.walk_frames
+            clips = {
+                'idle': walk_frames[:1] if walk_frames else walk_frames,
+                'walk': walk_frames,
+                'attack': attack_frames or walk_frames,
+            }
         except (pygame.error, FileNotFoundError):
-            # Headless / missing asset — create simple coloured placeholders
-            self.walk_frames = []
-            self.attack_frames = []
+            placeholder = []
             for _ in range(4):
-                surf = pygame.Surface((size, size), pygame.SRCALPHA)
+                surf = pygame.Surface(size, pygame.SRCALPHA)
                 surf.fill(settings.BLUE)
-                self.walk_frames.append(surf)
-                self.attack_frames.append(surf)
-            self.frames = self.walk_frames
+                placeholder.append(surf)
+            clips = {'idle': placeholder, 'walk': placeholder, 'attack': placeholder}
+
+        self.animator = AnimationController(clips, default_clip='idle')
+        self.walk_frames = clips.get('walk', [])
+        self.attack_frames = clips.get('attack', [])
+        self.frames = self.walk_frames
 
     # ── Movement ──────────────────────────────────────────────────────
 
@@ -349,24 +370,32 @@ class MainCharacter(pygame.sprite.Sprite):
 
     # ── Animation ─────────────────────────────────────────────────────
 
+    def _resolve_animation_state(self):
+        """Determine which animation clip should play based on current state.
+
+        Priority (highest → lowest):
+        die → stagger → attack → dash → jump → walk → idle
+        """
+        if self.health <= 0:
+            return 'die'
+        if getattr(self, '_staggered', False):
+            return 'stagger'
+        if self.attacking:
+            return 'attack'
+        if self.dashing:
+            return 'dash'
+        if not self.on_ground:
+            return 'jump'
+        if abs(self.velocity_x) > 0.5:
+            return 'walk'
+        return 'idle'
+
     def _animate(self):
-        """Cycle through sprite frames; blink during i-frames."""
-        # Select frame set based on state
-        if self.attacking and hasattr(self, 'attack_frames'):
-            self.frames = self.attack_frames
-        elif hasattr(self, 'walk_frames'):
-            self.frames = self.walk_frames
-
-        self.anim_timer += 1
-        if self.anim_timer >= self.anim_speed:
-            self.anim_timer = 0
-            self.frame_index = (self.frame_index + 1) % len(self.frames)
-
-        self.image = self.frames[self.frame_index % len(self.frames)]
-
-        # Flip sprite when facing left
-        if not self.facing_right:
-            self.image = pygame.transform.flip(self.image, True, False)
+        """Drive the animation controller based on current state."""
+        state = self._resolve_animation_state()
+        self.animator.play(state)
+        self.animator.update()
+        self.image = self.animator.get_frame(self.facing_right)
 
         # Blink effect during i-frames
         if self.invincible and (self.iframes_timer % settings.IFRAMES_BLINK_RATE < 2):
