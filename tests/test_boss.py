@@ -222,8 +222,8 @@ class TestFireball:
         assert fb.rect.y == initial_y + fb.vy
         assert fb.rect.x != initial_x
 
-    def test_fireball_kills_offscreen(self):
-        """Verify fireball auto-removes when off screen."""
+    def test_fireball_dies_after_lifetime(self):
+        """Verify fireball auto-removes when lifetime expires."""
         group = pygame.sprite.Group()
 
         # On-screen fireball stays alive
@@ -233,37 +233,11 @@ class TestFireball:
         assert group.has(fb)
         assert fb.alive()
 
-        # Off-screen left (rect.right < -50)
-        fb_left = Fireball(400, 300, 100, 300)
-        group.add(fb_left)
-        fb_left.rect.right = -51
-        fb_left.update()
-        assert not group.has(fb_left)
-        assert not fb_left.alive()
-
-        # Off-screen right (rect.left > SCREEN_WIDTH + 50)
-        fb_right = Fireball(400, 300, 500, 300)
-        group.add(fb_right)
-        fb_right.rect.left = SCREEN_WIDTH + 51
-        fb_right.update()
-        assert not group.has(fb_right)
-        assert not fb_right.alive()
-
-        # Off-screen top (rect.bottom < -50)
-        fb_top = Fireball(400, 300, 400, 100)
-        group.add(fb_top)
-        fb_top.rect.bottom = -51
-        fb_top.update()
-        assert not group.has(fb_top)
-        assert not fb_top.alive()
-
-        # Off-screen bottom (rect.top > SCREEN_HEIGHT + 50)
-        fb_bottom = Fireball(400, 300, 400, 500)
-        group.add(fb_bottom)
-        fb_bottom.rect.top = SCREEN_HEIGHT + 51
-        fb_bottom.update()
-        assert not group.has(fb_bottom)
-        assert not fb_bottom.alive()
+        # Simulate time passing
+        fb.lifetime = 1
+        fb.update()
+        assert not group.has(fb)
+        assert not fb.alive()
 
     def test_fireball_damage(self):
         """Verify fireball has correct damage value."""

@@ -64,9 +64,8 @@ class PlayerProjectile(pygame.sprite.Sprite):
         self.rect.x += self.vx
         self.lifetime -= 1
 
-        # Kill if off-screen or expired
-        if (self.rect.right < -20 or self.rect.left > SCREEN_WIDTH + 20
-                or self.lifetime <= 0):
+        # Kill if expired
+        if self.lifetime <= 0:
             self.kill()
 
     def draw(self, surface, offset=(0, 0)):

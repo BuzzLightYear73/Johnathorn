@@ -58,17 +58,14 @@ class Fireball(pygame.sprite.Sprite):
         self.vy = (dy / dist) * BOSS_FIREBALL_SPEED
 
         self.damage = BOSS_FIREBALL_DAMAGE
+        self.lifetime = 180  # 3 seconds at 60 FPS
 
     # ── Per-frame update ──────────────────────────────────────────────
     def update(self):
         self.rect.x += self.vx
         self.rect.y += self.vy
 
-        # Remove when well off-screen
-        if (
-            self.rect.right < -50
-            or self.rect.left > SCREEN_WIDTH + 50
-            or self.rect.bottom < -50
-            or self.rect.top > SCREEN_HEIGHT + 50
-        ):
+        self.lifetime -= 1
+        # Kill if expired
+        if self.lifetime <= 0:
             self.kill()
