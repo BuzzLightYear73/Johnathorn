@@ -3,7 +3,7 @@ Character/projectile.py — Player projectiles (arrows, fireballs).
 """
 import pygame
 import math
-from settings import IMAGES_DIR, SCREEN_WIDTH, SCREEN_HEIGHT
+from settings import IMAGES_DIR, ARENA_WIDTH
 
 
 class PlayerProjectile(pygame.sprite.Sprite):
@@ -65,7 +65,7 @@ class PlayerProjectile(pygame.sprite.Sprite):
         self.lifetime -= 1
 
         # Kill if off-screen or expired
-        if (self.rect.right < -20 or self.rect.left > SCREEN_WIDTH + 20
+        if (self.rect.right < -50 or self.rect.left > ARENA_WIDTH + 50
                 or self.lifetime <= 0):
             self.kill()
 

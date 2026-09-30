@@ -336,7 +336,7 @@ class Game:
         pygame.draw.rect(self.screen, fg_color, (x, y, int(w * ratio), h))
         pygame.draw.rect(self.screen, WHITE, (x, y, w, h), 1)
 
-    def _draw_hud(self):
+    def _draw_hud(self, camera_x=0):
         """Draw the player HUD: health, score, wave, combo."""
         # Health bar — use class-based max health
         self._draw_health_bar(
@@ -381,7 +381,7 @@ class Game:
             bar_h = 4
             from settings import ENEMY_BASE_HEALTH
             self._draw_health_bar(
-                e.rect.x + (e.rect.width - bar_w) // 2,
+                e.rect.x + (e.rect.width - bar_w) // 2 - camera_x,
                 e.rect.y - 8,
                 bar_w, bar_h,
                 e.health, ENEMY_BASE_HEALTH,
@@ -410,42 +410,54 @@ class Game:
         else:
             self.screen.fill((15, 15, 30))
 
-        # Title
+        # Title — top center with glow effect
         title_text = self.title_font.render("JOHNATHORN", True, (220, 180, 60))
-        self.screen.blit(
-            title_text,
-            (SCREEN_WIDTH // 2 - title_text.get_width() // 2, 150),
-        )
+        title_x = SCREEN_WIDTH // 2 - title_text.get_width() // 2
+        # Shadow/glow
+        shadow = self.title_font.render("JOHNATHORN", True, (80, 60, 20))
+        self.screen.blit(shadow, (title_x + 2, 82))
+        self.screen.blit(title_text, (title_x, 80))
 
-        # Subtitle
-        sub_text = self.font.render("Quest of Riefel", True, (150, 150, 180))
+        # Subtitle — spaced below title
+        sub_text = self.font.render("Quest of Riefel", True, (180, 160, 120))
         self.screen.blit(
             sub_text,
-            (SCREEN_WIDTH // 2 - sub_text.get_width() // 2, 220),
+            (SCREEN_WIDTH // 2 - sub_text.get_width() // 2, 160),
         )
 
-        # Controls
+        # Decorative separator line
+        line_y = 200
+        line_w = 300
+        line_x = SCREEN_WIDTH // 2 - line_w // 2
+        pygame.draw.line(self.screen, (120, 100, 60), (line_x, line_y), (line_x + line_w, line_y), 1)
+
+        # Controls — in a semi-transparent panel, bottom-left
         controls = [
-            "A / D : Move",
-            "W / SPACE : Jump",
-            "S : Attack",
-            "SHIFT : Dash",
-            "ESC : Pause",
+            "A / D    Move",
+            "W / SPC  Jump",
+            "S        Attack",
+            "SHIFT    Dash",
+            "ESC      Pause",
+            "F11      Fullscreen",
         ]
-        start_y = 320
+        panel_x, panel_y = 30, 350
+        panel_w, panel_h = 220, len(controls) * 26 + 30
+        panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        panel.fill((0, 0, 0, 100))
+        self.screen.blit(panel, (panel_x, panel_y))
+
+        ctrl_label = self.small_font.render("CONTROLS", True, (220, 180, 60))
+        self.screen.blit(ctrl_label, (panel_x + 10, panel_y + 6))
         for i, line in enumerate(controls):
             ctrl_text = self.small_font.render(line, True, (180, 180, 200))
-            self.screen.blit(
-                ctrl_text,
-                (SCREEN_WIDTH // 2 - ctrl_text.get_width() // 2, start_y + i * 30),
-            )
+            self.screen.blit(ctrl_text, (panel_x + 10, panel_y + 30 + i * 26))
 
-        # Start prompt (blink)
+        # Start prompt — bottom center (blink)
         if (pygame.time.get_ticks() // 500) % 2 == 0:
             start_text = self.font.render("Press ENTER to Start", True, YELLOW)
             self.screen.blit(
                 start_text,
-                (SCREEN_WIDTH // 2 - start_text.get_width() // 2, 500),
+                (SCREEN_WIDTH // 2 - start_text.get_width() // 2, 530),
             )
 
     def _draw_game_over_screen(self):
@@ -888,13 +900,13 @@ class Game:
 
                 # Player projectiles
                 for proj in self.player.projectiles:
-                    proj.draw(self.screen, offset=shake)
+                    proj.draw(self.screen, offset=(shake[0] - cam, shake[1]))
 
                 # Effects overlay
                 self.effects.draw(self.screen, camera_offset=shake)
 
                 # HUD (not affected by shake)
-                self._draw_hud()
+                self._draw_hud(camera_x=cam)
 
                 # Boss HUD
                 if self.state == "boss" and self.boss:

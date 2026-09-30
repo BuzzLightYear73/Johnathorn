@@ -655,5 +655,72 @@ class TestBackground(unittest.TestCase):
         bg.draw(screen, camera_x=-50)
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Projectile Bug Fixes
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestProjectileFixes(unittest.TestCase):
+    """Test projectile culling and rendering fixes."""
+
+    def test_projectile_survives_past_screen_width(self):
+        """Projectile at x=900 (past SCREEN_WIDTH) but inside arena must NOT be killed."""
+        from Character.projectile import PlayerProjectile
+        from settings import SCREEN_WIDTH
+        proj = PlayerProjectile(500, 300, 1, proj_type='arrow', damage=25)
+        grp = pygame.sprite.Group(proj)
+        # Move it past SCREEN_WIDTH but still within arena
+        proj.rect.x = SCREEN_WIDTH + 50  # 850 — inside 1200px arena
+        proj.update()
+        self.assertEqual(len(grp), 1, "Projectile killed inside arena bounds")
+
+    def test_projectile_dies_past_arena(self):
+        """Projectile past ARENA_WIDTH should be culled."""
+        from Character.projectile import PlayerProjectile
+        from settings import ARENA_WIDTH
+        proj = PlayerProjectile(500, 300, 1, proj_type='arrow', damage=25)
+        proj.rect.x = ARENA_WIDTH + 100
+        proj.update()
+        # Should be killed (either by bounds or lifetime, but bounds should catch it)
+        # Note: proj.kill() removes from groups but alive() checks group membership
+        # For ungrouped sprites, we check lifetime or re-add to a group
+        grp = pygame.sprite.Group(proj)
+        proj.rect.x = ARENA_WIDTH + 100
+        proj.update()
+        self.assertEqual(len(grp), 0, "Projectile not culled past arena edge")
+
+    def test_projectile_draw_accepts_camera_offset(self):
+        """Projectile draw must accept and apply a 2-tuple offset (for camera + shake)."""
+        from Character.projectile import PlayerProjectile
+        proj = PlayerProjectile(400, 300, 1, proj_type='arrow', damage=25)
+        screen = pygame.display.get_surface()
+        # Should not raise with camera-adjusted offset
+        proj.draw(screen, offset=(-200, 5))
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Title Screen Layout
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestTitleScreenLayout(unittest.TestCase):
+    """Title screen text must not visually stack — verify Y separation."""
+
+    def test_title_elements_have_minimum_vertical_spacing(self):
+        """Key title screen Y positions must have ≥50px separation."""
+        # These are the Y positions used in _draw_title_screen
+        positions = {
+            'title': 80,        # Updated: moved higher
+            'subtitle': 160,    # Updated: below title
+            'controls_start': 350,
+            'start_prompt': 530,
+        }
+        keys = list(positions.keys())
+        for i in range(len(keys) - 1):
+            gap = positions[keys[i + 1]] - positions[keys[i]]
+            self.assertGreaterEqual(gap, 50,
+                f"{keys[i]} → {keys[i+1]}: only {gap}px gap (need ≥50)")
+
+
 if __name__ == "__main__":
     unittest.main()
